@@ -1,8 +1,8 @@
 # YouTube MP3 Downloader
 
-![Build and Test](https://github.com/jomardyan/ytdownloader/actions/workflows/build.yml/badge.svg)
+![Build and Test](https://github.com/jomardyan/AudioDownload-YT/actions/workflows/build.yml/badge.svg)
 ![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)
-![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue)
 
 A robust, production-grade Python utility for downloading and converting audio from YouTube videos, playlists, and batch sources into multiple audio formats with advanced quality control, metadata management, and comprehensive error handling.
 
@@ -36,8 +36,8 @@ A robust, production-grade Python utility for downloading and converting audio f
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/jomardyan/ytdownloader.git
-cd ytdownloader
+git clone https://github.com/jomardyan/AudioDownload-YT.git
+cd AudioDownload-YT
 ```
 
 ### 2. Install Python Dependencies
@@ -68,7 +68,7 @@ choco install ffmpeg
 ### 4. Verify Installation
 
 ```bash
-python youtube_mp3_downloader.py --version
+python downloader.py --version
 ```
 
 ## Quick Start
@@ -76,26 +76,158 @@ python youtube_mp3_downloader.py --version
 ### Download Single Video
 
 ```bash
-python youtube_mp3_downloader.py "https://www.youtube.com/watch?v=VIDEO_ID"
+python downloader.py "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
 ### Download with Specific Quality and Format
 
 ```bash
-python youtube_mp3_downloader.py -q high -f flac "https://www.youtube.com/watch?v=VIDEO_ID"
+python downloader.py -q high -f flac "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
 ### Download Entire Playlist
 
 ```bash
-python youtube_mp3_downloader.py -p "https://www.youtube.com/playlist?list=PLAYLIST_ID"
+python downloader.py -p "https://www.youtube.com/playlist?list=PLAYLIST_ID"
 ```
 
 ### Batch Download from File
 
 ```bash
-python youtube_mp3_downloader.py -b urls.txt
+python downloader.py -b urls.txt
 ```
+
+## Using Makefile (Recommended)
+
+The project includes a **Makefile** with convenient shortcuts for common tasks. This is the recommended way to interact with the project.
+
+### Installation via Make
+
+```bash
+# Install package with dependencies
+make install
+
+# Install with development tools (testing, linting, formatting)
+make install-dev
+
+# Install globally for system-wide access
+make pipx-install
+```
+
+### Download Operations via Make
+
+```bash
+# Download single video
+make run URL='https://www.youtube.com/watch?v=VIDEO_ID'
+
+# Download with custom quality and format
+make run URL='https://www.youtube.com/watch?v=VIDEO_ID' ARGS='-q high -f flac'
+
+# Download entire playlist
+make run URL='https://www.youtube.com/playlist?list=PLAYLIST_ID'
+
+# Batch download from file
+make batch FILE='urls.txt'
+
+# Batch download with options
+make batch FILE='urls.txt' ARGS='-q best -f flac'
+
+# Preview download without processing (dry-run)
+make dry-run URL='https://www.youtube.com/watch?v=VIDEO_ID'
+```
+
+### Development & Quality Checks via Make
+
+```bash
+# Run all tests
+make test
+
+# Run quick smoke tests only
+make smoke-test
+
+# Generate test coverage report (creates htmlcov/index.html)
+make coverage
+
+# Check code style and quality
+make lint
+
+# Auto-format code (black, isort)
+make format
+
+# Run security checks
+make security
+
+# Run all quality checks at once
+make check
+
+# Validate project structure and dependencies
+make validate
+```
+
+### Build & Distribution via Make
+
+```bash
+# Clean build artifacts and cache
+make clean
+
+# Build distribution packages
+make build
+
+# Publish to PyPI (requires credentials)
+make publish
+```
+
+### Information & Configuration via Make
+
+```bash
+# Show all available commands
+make help
+
+# Display current configuration
+make show-config
+
+# Show installed version
+make version
+
+# Watch for file changes and auto-run tests (requires pytest-watch)
+make watch
+
+# Setup pre-commit git hooks
+make pre-commit
+```
+
+### Make Command Reference
+
+| Command | Purpose |
+|---------|---------|
+| **Installation** | |
+| `make install` | Install package with dependencies |
+| `make install-dev` | Install with development tools |
+| `make pipx-install` | Install globally via pipx |
+| `make pipx-uninstall` | Remove global installation |
+| **Downloads** | |
+| `make run URL=<url>` | Download single video |
+| `make batch FILE=<file>` | Download from batch file |
+| `make dry-run URL=<url>` | Preview download (no processing) |
+| **Testing & Quality** | |
+| `make test` | Run all tests |
+| `make smoke-test` | Run quick validation tests |
+| `make coverage` | Generate coverage report |
+| `make lint` | Check code style |
+| `make format` | Auto-format code |
+| `make security` | Run security checks |
+| `make check` | Run all quality checks |
+| `make validate` | Validate project structure |
+| **Build** | |
+| `make clean` | Remove build artifacts |
+| `make build` | Build distribution packages |
+| `make publish` | Publish to PyPI |
+| **Information** | |
+| `make help` | Show help message |
+| `make show-config` | Display configuration |
+| `make version` | Show version |
+| `make watch` | Auto-run tests on changes |
+| `make pre-commit` | Setup git hooks |
 
 ## Usage
 
@@ -109,27 +241,27 @@ python youtube_mp3_downloader.py -b urls.txt
 | `best` | Original | Archival, maximum quality |
 
 ```bash
-python youtube_mp3_downloader.py -q high <url>
+python downloader.py -q high <url>
 ```
 
 ### Supported Audio Formats
 
 ```bash
-python youtube_mp3_downloader.py -f mp3 <url>    # MP3 (default)
-python youtube_mp3_downloader.py -f m4a <url>    # M4A
-python youtube_mp3_downloader.py -f flac <url>   # FLAC (lossless)
-python youtube_mp3_downloader.py -f wav <url>    # WAV (lossless)
-python youtube_mp3_downloader.py -f ogg <url>    # OGG Vorbis
+python downloader.py -f mp3 <url>    # MP3 (default)
+python downloader.py -f m4a <url>    # M4A
+python downloader.py -f flac <url>   # FLAC (lossless)
+python downloader.py -f wav <url>    # WAV (lossless)
+python downloader.py -f ogg <url>    # OGG Vorbis
 ```
 
 ### Playlist Processing
 
 ```bash
 # Download entire playlist
-python youtube_mp3_downloader.py -p <playlist_url>
+python downloader.py -p <playlist_url>
 
 # Download playlist with specific quality
-python youtube_mp3_downloader.py -p -q high -f flac <playlist_url>
+python downloader.py -p -q high -f flac <playlist_url>
 ```
 
 ### Batch Processing
@@ -144,30 +276,30 @@ https://www.youtube.com/playlist?list=PLAYLIST_ID
 
 ```bash
 # Standard batch download
-python youtube_mp3_downloader.py -b urls.txt
+python downloader.py -b urls.txt
 
 # With quality and output directory
-python youtube_mp3_downloader.py -b urls.txt -q best -o ./music
+python downloader.py -b urls.txt -q best -o ./music
 
 # With retry and logging
-python youtube_mp3_downloader.py -b urls.txt --retries 5 --log-file download.log
+python downloader.py -b urls.txt --retries 5 --log-file download.log
 
 # Stop on first failure
-python youtube_mp3_downloader.py -b urls.txt --fail-fast
+python downloader.py -b urls.txt --fail-fast
 
 # Stop after N failures
-python youtube_mp3_downloader.py -b urls.txt --max-failures 3
+python downloader.py -b urls.txt --max-failures 3
 ```
 
 ### Output and Naming
 
 ```bash
 # Custom output directory
-python youtube_mp3_downloader.py -o ~/Music <url>
+python downloader.py -o ~/Music <url>
 
 # Custom filename template
-python youtube_mp3_downloader.py -t "%(artist)s - %(title)s" <url>
-python youtube_mp3_downloader.py -t "%(uploader)s - %(upload_date)s - %(title)s" <url>
+python downloader.py -t "%(artist)s - %(title)s" <url>
+python downloader.py -t "%(uploader)s - %(upload_date)s - %(title)s" <url>
 ```
 
 Available variables: `%(title)s`, `%(artist)s`, `%(uploader)s`, `%(upload_date)s`, `%(id)s`, `%(ext)s`
@@ -177,18 +309,18 @@ Available variables: `%(title)s`, `%(artist)s`, `%(uploader)s`, `%(upload_date)s
 Preview downloads without processing:
 
 ```bash
-python youtube_mp3_downloader.py --dry-run <url>
-python youtube_mp3_downloader.py --dry-run -b urls.txt
+python downloader.py --dry-run <url>
+python downloader.py --dry-run -b urls.txt
 ```
 
 ### Configuration Management
 
 ```bash
 # Display current configuration
-python youtube_mp3_downloader.py --show-config
+python downloader.py --show-config
 
 # Save configuration to file
-python youtube_mp3_downloader.py --save-config
+python downloader.py --save-config
 ```
 
 Configuration files are stored at (in priority order):
@@ -226,13 +358,13 @@ Prevent re-downloading the same content:
 
 ```bash
 # Use archive (default, enabled)
-python youtube_mp3_downloader.py <url>
+python downloader.py <url>
 
 # Disable archive
-python youtube_mp3_downloader.py --no-archive <url>
+python downloader.py --no-archive <url>
 
 # Use custom archive file
-python youtube_mp3_downloader.py --archive /path/to/archive <url>
+python downloader.py --archive /path/to/archive <url>
 ```
 
 ### Logging
@@ -240,42 +372,42 @@ python youtube_mp3_downloader.py --archive /path/to/archive <url>
 Enable detailed logging for debugging:
 
 ```bash
-python youtube_mp3_downloader.py -b urls.txt --log-file download.log
+python downloader.py -b urls.txt --log-file download.log
 ```
 
 ### Network Options
 
 ```bash
 # HTTP proxy
-python youtube_mp3_downloader.py --proxy http://user:pass@host:port <url>
+python downloader.py --proxy http://user:pass@host:port <url>
 
 # SOCKS5 proxy
-python youtube_mp3_downloader.py --proxy socks5://127.0.0.1:1080 <url>
+python downloader.py --proxy socks5://127.0.0.1:1080 <url>
 
 # Rate limiting
-python youtube_mp3_downloader.py --limit-rate 1M <url>
+python downloader.py --limit-rate 1M <url>
 
 # Cookie authentication
-python youtube_mp3_downloader.py --cookies cookies.txt <url>
+python downloader.py --cookies cookies.txt <url>
 ```
 
 ### Error Handling
 
 ```bash
 # Custom retry attempts
-python youtube_mp3_downloader.py --retries 5 <url>
+python downloader.py --retries 5 <url>
 
 # Skip validation checks
-python youtube_mp3_downloader.py --skip-checks <url>
+python downloader.py --skip-checks <url>
 
 # Disable metadata and thumbnails
-python youtube_mp3_downloader.py --no-metadata --no-thumbnail <url>
+python downloader.py --no-metadata --no-thumbnail <url>
 ```
 
 ## Command Reference
 
 ```
-usage: youtube_mp3_downloader.py [-h] [-q {low,medium,high,best}] 
+usage: downloader.py [-h] [-q {low,medium,high,best}] 
                                   [-f {mp3,m4a,flac,wav,ogg}]
                                   [-o OUTPUT] [-t TEMPLATE] [-p] [-b BATCH_FILE]
                                   [--no-metadata] [--no-thumbnail]
@@ -352,7 +484,7 @@ Verify: `ffmpeg -version`
 ### "Permission denied"
 Ensure write permissions to output directory:
 ```bash
-python youtube_mp3_downloader.py -o ~/Downloads <url>
+python downloader.py -o ~/Downloads <url>
 ```
 
 ### Downloads are slow
@@ -368,18 +500,18 @@ python youtube_mp3_downloader.py -o ~/Downloads <url>
 ### Some batch downloads fail
 Check log file for error details:
 ```bash
-python youtube_mp3_downloader.py -b urls.txt --log-file debug.log
+python downloader.py -b urls.txt --log-file debug.log
 ```
 
 Increase retry attempts:
 ```bash
-python youtube_mp3_downloader.py -b urls.txt --retries 5
+python downloader.py -b urls.txt --retries 5
 ```
 
 ### Video marked as "already downloaded"
 Force re-download:
 ```bash
-python youtube_mp3_downloader.py --no-archive <url>
+python downloader.py --no-archive <url>
 ```
 
 Or clear archive:
@@ -391,7 +523,7 @@ rm ~/.ytdownloader_archive.txt
 
 ```
 youtube_mp3_downloader/
-├── youtube_mp3_downloader.py  # Main application
+├── downloader.py              # Main application
 ├── requirements.txt            # Python dependencies
 ├── pyproject.toml             # Project metadata
 ├── Makefile                   # Build automation
@@ -431,7 +563,7 @@ pip install -e ".[dev]"
 
 ## License
 
-This project is licensed under the MIT License — see LICENSE file for details.
+This project is licensed under the GNU General Public License v3.0 or later — see LICENSE file for details.
 
 ## Contributing
 

@@ -14,7 +14,7 @@ import pytest
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from youtube_mp3_downloader import (
+from downloader import (
     Config,
     ErrorCode,
     DownloadResult,
@@ -283,7 +283,7 @@ class TestCLIArgumentParsing:
         """Test that --help works without error"""
         import subprocess
         result = subprocess.run(
-            [sys.executable, "youtube_mp3_downloader.py", "--help"],
+            [sys.executable, "downloader.py", "--help"],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent
@@ -295,7 +295,7 @@ class TestCLIArgumentParsing:
         """Test that --version works"""
         import subprocess
         result = subprocess.run(
-            [sys.executable, "youtube_mp3_downloader.py", "--version"],
+            [sys.executable, "downloader.py", "--version"],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent
@@ -307,7 +307,7 @@ class TestCLIArgumentParsing:
         """Test that --show-config works"""
         import subprocess
         result = subprocess.run(
-            [sys.executable, "youtube_mp3_downloader.py", "--show-config"],
+            [sys.executable, "downloader.py", "--show-config"],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent
@@ -319,7 +319,7 @@ class TestCLIArgumentParsing:
         """Test that missing URL shows appropriate error"""
         import subprocess
         result = subprocess.run(
-            [sys.executable, "youtube_mp3_downloader.py"],
+            [sys.executable, "downloader.py"],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent
@@ -335,7 +335,7 @@ class TestBatchFileHandling:
         """Test error handling for missing batch file"""
         import subprocess
         result = subprocess.run(
-            [sys.executable, "youtube_mp3_downloader.py", "-b", "nonexistent_file.txt", "--skip-checks"],
+            [sys.executable, "downloader.py", "-b", "nonexistent_file.txt", "--skip-checks"],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent
@@ -352,7 +352,7 @@ class TestBatchFileHandling:
         
         try:
             result = subprocess.run(
-                [sys.executable, "youtube_mp3_downloader.py", "-b", batch_path, "--skip-checks"],
+                [sys.executable, "downloader.py", "-b", batch_path, "--skip-checks"],
                 capture_output=True,
                 text=True,
                 cwd=Path(__file__).parent.parent

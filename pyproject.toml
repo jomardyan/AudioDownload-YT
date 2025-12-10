@@ -7,7 +7,7 @@ name = "ytdownloader"
 version = "1.0.0"
 description = "Enhanced YouTube to MP3 Downloader with config, archive, and network options"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GPL-3.0-or-later"}
 authors = [
     {name = "YouTube MP3 Downloader"}
 ]
@@ -16,7 +16,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -39,15 +39,15 @@ dev = [
 ]
 
 [project.scripts]
-ytdownloader = "youtube_mp3_downloader:main"
-ytdl = "youtube_mp3_downloader:main"
+ytdownloader = "downloader:main"
+ytdl = "downloader:main"
 
 [project.urls]
-Homepage = "https://github.com/jomardyan/ytdownloader"
-Issues = "https://github.com/jomardyan/ytdownloader/issues"
+Homepage = "https://github.com/jomardyan/AudioDownload-YT"
+Issues = "https://github.com/jomardyan/AudioDownload-YT/issues"
 
 [tool.setuptools]
-py-modules = ["youtube_mp3_downloader"]
+py-modules = ["downloader"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
