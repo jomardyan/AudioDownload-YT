@@ -106,15 +106,18 @@ jobs:
           pyproject.toml
 
     - name: Install dependencies
+      shell: bash
       run: |
         python -m pip install --upgrade pip setuptools wheel
         pip install -r requirements.txt
 
     - name: Install dev dependencies
+      shell: bash
       run: |
         pip install pytest pytest-cov pytest-xdist pytest-timeout
 
     - name: Run tests with coverage
+      shell: bash
       run: |
         pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing -n auto --timeout=300
       timeout-minutes: 10
@@ -130,16 +133,19 @@ jobs:
       continue-on-error: true
 
     - name: Compile Python files
+      shell: bash
       run: |
         python -m py_compile downloader.py
-        python -m py_compile plugins/*.py
-        python -m py_compile tests/*.py
+        python -m compileall plugins/ -q
+        python -m compileall tests/ -q
 
     - name: Verify imports
+      shell: bash
       run: |
         python -c "import downloader; from plugins import get_global_registry; print('✓ All imports successful')"
 
     - name: Test CLI help
+      shell: bash
       run: |
         python downloader.py --help
 
