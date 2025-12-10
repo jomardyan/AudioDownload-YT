@@ -1,6 +1,6 @@
 # YouTube MP3 Downloader - Enhanced
 
-![Build and Test](https://github.com/yourusername/ytdownloader/actions/workflows/build.yml/badge.svg)
+![Build and Test](https://github.com/jomardyan/ytdownloader/actions/workflows/build.yml/badge.svg)
 
 A powerful and user-friendly Python script to download audio from YouTube videos and playlists as MP3/FLAC/M4A files with quality options, metadata embedding, batch processing, rich error handling, and configuration management.
 

@@ -43,8 +43,8 @@ ytdownloader = "youtube_mp3_downloader:main"
 ytdl = "youtube_mp3_downloader:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/ytdownloader"
-Issues = "https://github.com/yourusername/ytdownloader/issues"
+Homepage = "https://github.com/jomardyan/ytdownloader"
+Issues = "https://github.com/jomardyan/ytdownloader/issues"
 
 [tool.setuptools]
 py-modules = ["youtube_mp3_downloader"]
