@@ -13,7 +13,7 @@ import re
 import shutil
 import sys
 import time
-from configparser import ConfigParser
+from configparser import ConfigParser, RawConfigParser
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
@@ -75,7 +75,8 @@ class Config:
     @classmethod
     def from_file(cls, config_path: Path) -> 'Config':
         """Load config from a .conf file"""
-        parser = ConfigParser()
+        # Use RawConfigParser to avoid interpolation issues with %(title)s template
+        parser = RawConfigParser()
         parser.read(config_path)
         
         config = cls()
@@ -109,7 +110,8 @@ class Config:
     
     def save_to_file(self, config_path: Path):
         """Save current config to a file"""
-        parser = ConfigParser()
+        # Use RawConfigParser to avoid interpolation issues with %(title)s template
+        parser = RawConfigParser()
         
         parser['download'] = {
             'quality': self.quality,
@@ -1047,15 +1049,17 @@ def _print_batch_summary(results: List[DownloadResult], all_urls: List[str]):
     console.print()
 
 
+
+
 def main():
-    \"\"\"Main entry point\"\"\"
+    """Main entry point"""
     # Load config file defaults
     config = load_config()
     
     parser = argparse.ArgumentParser(
         description='Enhanced YouTube to MP3 Downloader with config, archive, and network options',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=\"\"\"
+        epilog="""
 Examples:
   # Download single video with default settings
   python youtube_mp3_downloader.py https://www.youtube.com/watch?v=dQw4w9WgXcQ
@@ -1086,7 +1090,7 @@ Exit Codes:
   1 - Some downloads failed (partial success)
   2 - Validation/preflight error
   3 - All downloads failed
-        \"\"\"
+        """
     )
     
     # Positional argument (optional if using batch file)
@@ -1121,7 +1125,7 @@ Exit Codes:
     parser.add_argument(
         '-t', '--template',
         default=config.template,
-        help=f'Filename template (default: {config.template})'
+        help='Filename template (default: %%(title)s.%%(ext)s)'
     )
     
     # Playlist and batch options
@@ -1254,20 +1258,20 @@ Exit Codes:
     
     # Handle --show-config
     if args.show_config:
-        console.print(\"\\n[bold cyan]Current Configuration:[/bold cyan]\\n\")
-        table = Table(show_header=True, header_style=\"bold cyan\")
-        table.add_column(\"Setting\")
-        table.add_column(\"Value\")
-        table.add_row(\"Quality\", args.quality)
-        table.add_row(\"Format\", args.format)
-        table.add_row(\"Output\", args.output)
-        table.add_row(\"Template\", args.template)
-        table.add_row(\"Retries\", str(args.retries))
-        table.add_row(\"Archive\", args.archive if not args.no_archive else \"(disabled)\")
-        table.add_row(\"Proxy\", args.proxy or \"(none)\")
-        table.add_row(\"Rate Limit\", args.limit_rate or \"(none)\")
-        table.add_row(\"Cookies\", args.cookies or \"(none)\")
-        table.add_row(\"Log File\", args.log_file or \"(none)\")
+        console.print("\n[bold cyan]Current Configuration:[/bold cyan]\n")
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("Setting")
+        table.add_column("Value")
+        table.add_row("Quality", args.quality)
+        table.add_row("Format", args.format)
+        table.add_row("Output", args.output)
+        table.add_row("Template", args.template)
+        table.add_row("Retries", str(args.retries))
+        table.add_row("Archive", args.archive if not args.no_archive else "(disabled)")
+        table.add_row("Proxy", args.proxy or "(none)")
+        table.add_row("Rate Limit", args.limit_rate or "(none)")
+        table.add_row("Cookies", args.cookies or "(none)")
+        table.add_row("Log File", args.log_file or "(none)")
         console.print(table)
         console.print()
         sys.exit(EXIT_SUCCESS)
@@ -1291,13 +1295,13 @@ Exit Codes:
         )
         config_path = CONFIG_LOCATIONS[0]  # Save to home directory
         new_config.save_to_file(config_path)
-        console.print(f\"[green]\u2713[/green] Configuration saved to: {config_path}\")
+        console.print(f"[green]✓[/green] Configuration saved to: {config_path}")
         sys.exit(EXIT_SUCCESS)
     
     # Validate input
     if not args.url and not args.batch_file:
         parser.print_help()
-        console.print(\"\\n[bold red]Error:[/bold red] You must provide either a URL or a batch file (-b)\")
+        console.print("\n[bold red]Error:[/bold red] You must provide either a URL or a batch file (-b)")
         sys.exit(EXIT_VALIDATION_ERROR)
     
     # Setup logging
@@ -1306,24 +1310,24 @@ Exit Codes:
     
     # Show banner
     if not args.quiet:
-        console.print(\"\\n[bold cyan]\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550[/bold cyan]\")
-        console.print(f\"[bold cyan]   YouTube MP3 Downloader v{__version__}   [/bold cyan]\")
-        console.print(\"[bold cyan]\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550[/bold cyan]\\n\")
+        console.print("\n[bold cyan]═══════════════════════════════════════════[/bold cyan]")
+        console.print(f"[bold cyan]   YouTube MP3 Downloader v{__version__}   [/bold cyan]")
+        console.print("[bold cyan]═══════════════════════════════════════════[/bold cyan]\n")
     
     # Handle dry run
     if args.dry_run:
         if args.batch_file:
-            console.print(\"[yellow]Note:[/yellow] Dry run shows info for first URL in batch file\")
+            console.print("[yellow]Note:[/yellow] Dry run shows info for first URL in batch file")
             try:
                 with open(args.batch_file, 'r') as f:
                     urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
                 if urls:
                     args.url = urls[0]
                 else:
-                    console.print(\"[red]No URLs found in batch file[/red]\")
+                    console.print("[red]No URLs found in batch file[/red]")
                     sys.exit(EXIT_VALIDATION_ERROR)
             except FileNotFoundError:
-                console.print(f\"[red]Batch file not found: {args.batch_file}[/red]\")
+                console.print(f"[red]Batch file not found: {args.batch_file}[/red]")
                 sys.exit(EXIT_VALIDATION_ERROR)
         
         info = dry_run_info(
@@ -1350,14 +1354,14 @@ Exit Codes:
         critical_checks = ['FFmpeg', 'Output Directory']
         for check_name, passed, message in checks:
             if check_name in critical_checks and not passed:
-                console.print(f\"[bold red]Cannot proceed:[/bold red] {message}\")
+                console.print(f"[bold red]Cannot proceed:[/bold red] {message}")
                 sys.exit(EXIT_VALIDATION_ERROR)
         
         # URL validation (non-critical for batch mode)
         if args.url and not args.batch_file:
             for check_name, passed, message in checks:
                 if check_name == 'URL Format' and not passed:
-                    console.print(f\"[bold red]Cannot proceed:[/bold red] {message}\")
+                    console.print(f"[bold red]Cannot proceed:[/bold red] {message}")
                     sys.exit(EXIT_VALIDATION_ERROR)
     
     # Determine archive file
