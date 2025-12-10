@@ -58,14 +58,30 @@ class TestURLValidation:
         assert valid is False
         assert "empty" in msg.lower()
     
-    def test_invalid_url_not_youtube(self):
+    def test_valid_vimeo_url(self):
+        # Vimeo is now supported via plugin system
         valid, msg = validate_url("https://vimeo.com/123456")
-        assert valid is False
-        assert "invalid" in msg.lower()
+        assert valid is True
     
     def test_invalid_url_malformed(self):
         valid, msg = validate_url("not-a-url")
         assert valid is False
+    
+    def test_valid_tiktok_url(self):
+        # TikTok is supported via plugin system
+        valid, msg = validate_url("https://www.tiktok.com/@creator/video/123456789")
+        assert valid is True
+    
+    def test_valid_soundcloud_url(self):
+        # SoundCloud is supported via plugin system
+        valid, msg = validate_url("https://soundcloud.com/artist/track")
+        assert valid is True
+    
+    def test_invalid_unsupported_platform(self):
+        # Unsupported platform should fail
+        valid, msg = validate_url("https://totally-fake-platform.xyz/video/123")
+        assert valid is False
+        assert "Unsupported" in msg or "supported" in msg.lower()
 
 
 class TestFilenameValidation:

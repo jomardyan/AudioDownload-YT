@@ -15,6 +15,13 @@ A robust, production-grade Python utility for downloading and converting audio f
 - Batch processing with configurable failure handling
 - Comprehensive progress reporting with real-time metrics
 
+**Multi-Platform Plugin System**
+- Download from 9+ popular platforms: **YouTube, TikTok, Instagram, SoundCloud, Spotify, Twitch, Dailymotion, Vimeo, Reddit**
+- Extensible plugin architecture for adding new platforms
+- Unified interface across all supported platforms
+- Automatic platform detection from URL
+- Per-platform capability management (playlists, authentication, subtitles)
+
 **Advanced Functionality**
 - Persistent download archive to prevent duplicate processing
 - Flexible configuration file system with multiple location support
@@ -228,6 +235,110 @@ make pre-commit
 | `make version` | Show version |
 | `make watch` | Auto-run tests on changes |
 | `make pre-commit` | Setup git hooks |
+
+## Multi-Platform Plugin System
+
+The downloader now supports downloading from 9+ popular platforms through an extensible plugin system.
+
+### Supported Platforms
+
+| Platform | Features | Playlist | Auth | Formats |
+|----------|----------|----------|------|---------|
+| **YouTube** | Videos, Shorts, Music | ✓ | Optional | MP3, MP4, M4A, WAV, OGG, FLAC |
+| **TikTok** | Videos, Clips | ✓ | ✗ | MP3, MP4, M4A |
+| **Instagram** | Posts, Reels, Stories | ✗ | ✗ | MP3, MP4, M4A |
+| **SoundCloud** | Tracks, Playlists | ✓ | ✗ | MP3, M4A, OGG, WAV |
+| **Spotify** | Tracks, Playlists, Albums | ✓ | ✗ | MP3, M4A, OGG, WAV, FLAC |
+| **Twitch** | VODs, Clips, Highlights | ✗ | ✗ | MP3, MP4, M4A |
+| **Dailymotion** | Videos, Playlists | ✓ | ✗ | MP3, MP4, M4A |
+| **Vimeo** | Videos, Channels | ✓ | ✗ | MP3, MP4, M4A |
+| **Reddit** | Videos, Posts | ✗ | ✗ | MP3, MP4, M4A |
+
+### List Available Plugins
+
+View all installed platform plugins and their capabilities:
+
+```bash
+python downloader.py --list-plugins
+```
+
+Output shows:
+- Platform name and description
+- Supported content types (audio, video)
+- Output format options
+- Playlist support
+- Authentication requirements
+
+### Multi-Platform Examples
+
+```bash
+# Download from TikTok
+python downloader.py https://www.tiktok.com/@creator/video/123456789
+
+# Extract audio from Instagram Reel
+python downloader.py -f mp3 https://www.instagram.com/reel/ABC123/
+
+# Download SoundCloud track
+python downloader.py https://soundcloud.com/artist/track-name
+
+# Get Spotify playlist as MP3s
+python downloader.py -p -q high https://open.spotify.com/playlist/PLAYLIST_ID
+
+# Download Twitch VOD
+python downloader.py https://www.twitch.tv/videos/1234567890
+
+# Extract audio from Vimeo video
+python downloader.py -f mp3 https://vimeo.com/123456789
+```
+
+### Platform-Specific Features
+
+The plugin system automatically detects the platform from the URL and applies appropriate settings:
+
+- **Automatic Format Support**: Each platform's plugin knows which formats are best supported
+- **Playlist Handling**: For playlists, automatically download all items if `-p` flag is used
+- **Quality Optimization**: Quality presets are translated to platform-specific settings
+- **Error Recovery**: Platform-specific error handling and retry logic
+
+### Creating Custom Plugins
+
+To add support for a new platform, create a new plugin file in the `plugins/` directory:
+
+```python
+from plugins.base import BaseConverter, PluginCapabilities, ContentType
+
+class MyPlatformConverter(BaseConverter):
+    def get_capabilities(self) -> PluginCapabilities:
+        return PluginCapabilities(
+            name="My Platform Converter",
+            version="1.0.0",
+            platform="MyPlatform",
+            description="Download from MyPlatform",
+            # ... other capabilities
+        )
+    
+    def can_handle(self, url: str) -> bool:
+        # Return True if this converter handles the URL
+        pass
+    
+    def download(self, url: str, output_path: str, quality: str = 'medium', 
+                 format: str = 'mp3', **kwargs):
+        # Implement download logic
+        pass
+    
+    # ... implement other required methods
+```
+
+Then register it in `plugins/__init__.py`:
+
+```python
+from .my_platform import MyPlatformConverter
+
+def register_default_plugins():
+    registry = get_global_registry()
+    registry.register('myplatform', MyPlatformConverter())
+    # ... other registrations
+```
 
 ## Usage
 

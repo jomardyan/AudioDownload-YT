@@ -3,6 +3,7 @@
 Enhanced YouTube to MP3 Downloader
 Download audio from YouTube videos, playlists, and batch files with quality options
 Features: Rich error handling, retries, validation, config file, archive, and detailed reporting
+Plugin system for multi-platform support (YouTube, TikTok, Instagram, Spotify, SoundCloud, etc.)
 """
 
 import argparse
@@ -33,10 +34,79 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
+# Import plugin system
+try:
+    from plugins import (
+        get_global_registry,
+        ContentType,
+        BaseConverter,
+    )
+    PLUGINS_AVAILABLE = True
+except ImportError:
+    PLUGINS_AVAILABLE = False
+
 console = Console()
 
 # Version
 __version__ = "1.0.0"
+
+
+# ============================================================================
+# PLUGIN SYSTEM HELPER FUNCTIONS
+# ============================================================================
+
+def get_converter_for_url(url: str) -> Optional[Tuple[str, BaseConverter]]:
+    """
+    Find the appropriate converter plugin for a given URL.
+    
+    Args:
+        url: The content URL
+        
+    Returns:
+        tuple: (plugin_id, converter_instance) or None
+    """
+    if not PLUGINS_AVAILABLE:
+        return None
+    
+    try:
+        registry = get_global_registry()
+        result = registry.find_plugin_for_url(url)
+        return result
+    except Exception as e:
+        if not console:
+            return None
+        return None
+
+
+def list_supported_platforms() -> Dict[str, Dict[str, Any]]:
+    """
+    List all supported platforms and their capabilities.
+    
+    Returns:
+        dict: Platform information indexed by plugin ID
+    """
+    if not PLUGINS_AVAILABLE:
+        return {}
+    
+    try:
+        registry = get_global_registry()
+        plugins = registry.list_plugins()
+        
+        result = {}
+        for plugin_id, capabilities in plugins.items():
+            result[plugin_id] = {
+                'name': capabilities.name,
+                'platform': capabilities.platform,
+                'description': capabilities.description,
+                'supports_playlist': capabilities.supports_playlist,
+                'supports_auth': capabilities.supports_auth,
+                'supported_content_types': [ct.value for ct in capabilities.supported_content_types],
+                'output_formats': capabilities.output_formats,
+                'url_patterns': capabilities.url_patterns,
+            }
+        return result
+    except Exception:
+        return {}
 
 # Default config file locations
 CONFIG_LOCATIONS = [
@@ -323,7 +393,8 @@ def classify_error(exception: Exception) -> Tuple[ErrorCode, str]:
 
 def validate_url(url: str) -> Tuple[bool, str]:
     """
-    Validate a YouTube URL format.
+    Validate a URL format against registered platform plugins.
+    Falls back to YouTube patterns if plugins not available.
     
     Args:
         url: The URL to validate
@@ -334,7 +405,14 @@ def validate_url(url: str) -> Tuple[bool, str]:
     if not url:
         return False, "URL cannot be empty"
     
-    # Common YouTube URL patterns
+    # Try plugin system first
+    if PLUGINS_AVAILABLE:
+        plugin_result = get_converter_for_url(url)
+        if plugin_result:
+            plugin_id, converter = plugin_result
+            return converter.validate_url(url)
+    
+    # Fallback to YouTube patterns for backwards compatibility
     youtube_patterns = [
         r'^https?://(www\.)?youtube\.com/watch\?v=[\w-]+',
         r'^https?://(www\.)?youtube\.com/playlist\?list=[\w-]+',
@@ -347,7 +425,18 @@ def validate_url(url: str) -> Tuple[bool, str]:
         if re.match(pattern, url, re.IGNORECASE):
             return True, ""
     
-    return False, f"Invalid YouTube URL format: {url}"
+    error_msg = "Unsupported URL format. "
+    if PLUGINS_AVAILABLE:
+        platforms = list_supported_platforms()
+        if platforms:
+            platform_list = ', '.join([p['platform'] for p in platforms.values()])
+            error_msg += f"Supported platforms: {platform_list}"
+        else:
+            error_msg += "Check your URL format."
+    else:
+        error_msg += "Only YouTube URLs are supported in this configuration."
+    
+    return False, error_msg
 
 
 def check_ffmpeg() -> Tuple[bool, str]:
@@ -1241,6 +1330,12 @@ Exit Codes:
         help='Show current configuration and exit'
     )
     
+    parser.add_argument(
+        '--list-plugins',
+        action='store_true',
+        help='List all available platform plugins and exit'
+    )
+    
     # Other options
     parser.add_argument(
         '--quiet',
@@ -1255,6 +1350,30 @@ Exit Codes:
     )
     
     args = parser.parse_args()
+    
+    # Handle --list-plugins
+    if args.list_plugins:
+        platforms = list_supported_platforms()
+        if not platforms:
+            console.print("[yellow]No plugins available[/yellow]")
+            sys.exit(EXIT_SUCCESS)
+        
+        console.print("\n[bold cyan]═══════════════════════════════════════════[/bold cyan]")
+        console.print("[bold cyan]         Supported Platform Plugins          [/bold cyan]")
+        console.print("[bold cyan]═══════════════════════════════════════════[/bold cyan]\n")
+        
+        for plugin_id, info in platforms.items():
+            console.print(f"[bold green]{info['platform']}[/bold green]")
+            console.print(f"  Name: [cyan]{info['name']}[/cyan]")
+            console.print(f"  Description: {info['description']}")
+            console.print(f"  Content Types: {', '.join(info['supported_content_types'])}")
+            console.print(f"  Formats: {', '.join(info['output_formats'][:3])}...")
+            console.print(f"  Playlist Support: {'Yes' if info['supports_playlist'] else 'No'}")
+            console.print(f"  Authentication: {'Required' if info['supports_auth'] else 'Not required'}")
+            console.print()
+        
+        console.print(f"[dim]Total Plugins: {len(platforms)}[/dim]\n")
+        sys.exit(EXIT_SUCCESS)
     
     # Handle --show-config
     if args.show_config:

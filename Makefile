@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test smoke-test lint format clean build publish run dry-run show-config version pipx-install pipx-uninstall check coverage pre-commit security validate watch
+.PHONY: help install install-dev test smoke-test lint format clean build publish run dry-run show-config version pipx-install pipx-uninstall check coverage pre-commit security validate watch list-plugins plugin-docs batch
 
 # Color codes for output
 BLUE := \033[0;34m
@@ -39,6 +39,10 @@ help:
 	@echo "  make dry-run URL=<url> Preview download without processing"
 	@echo "  make batch FILE=<file> Download from batch file"
 	@echo ""
+	@echo "$(GREEN)Plugin System:$(NC)"
+	@echo "  make list-plugins    List all supported platform plugins"
+	@echo "  make plugin-docs     Show plugin API documentation"
+	@echo ""
 	@echo "$(GREEN)Information:$(NC)"
 	@echo "  make show-config     Display current configuration"
 	@echo "  make version         Show installed version"
@@ -49,6 +53,8 @@ help:
 	@echo "  make run URL='https://www.youtube.com/watch?v=VIDEO_ID' ARGS='-q high -f flac'"
 	@echo "  make batch FILE='urls.txt' ARGS='-q best -f flac'"
 	@echo "  make dry-run URL='https://www.youtube.com/watch?v=VIDEO_ID'"
+	@echo "  make run URL='https://www.tiktok.com/@creator/video/123456789'"
+	@echo "  make run URL='https://soundcloud.com/artist/track'"
 	@echo ""
 
 # Install the package
@@ -218,3 +224,24 @@ pre-commit:
 	pre-commit install
 	@echo "$(GREEN)✓ Pre-commit hooks installed$(NC)"
 	@echo "$(YELLOW)Pre-commit will run checks before each git commit$(NC)"
+
+# List available plugins
+list-plugins:
+	@echo "$(BLUE)→ Available Platform Plugins:$(NC)"
+	python downloader.py --list-plugins
+
+# Show plugin API documentation
+plugin-docs:
+	@echo "$(BLUE)→ Plugin API Documentation:$(NC)"
+	@test -f PLUGIN_API.md || (echo "$(RED)✗ PLUGIN_API.md not found$(NC)" && exit 1)
+	@echo "$(GREEN)View PLUGIN_API.md for detailed documentation$(NC)"
+	@echo ""
+	@echo "$(BLUE)Quick Reference:$(NC)"
+	@echo "  - Create plugins in plugins/ directory"
+	@echo "  - Inherit from BaseConverter class"
+	@echo "  - Implement required methods: get_capabilities(), can_handle(), validate_url(), get_info(), download()"
+	@echo "  - Register in plugins/__init__.py"
+	@echo ""
+	@echo "$(BLUE)Supported Platforms:$(NC)"
+	python downloader.py --list-plugins | grep -E "^[A-Z]" | head -15
+
