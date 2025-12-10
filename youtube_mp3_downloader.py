@@ -18,7 +18,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import yt_dlp
 from yt_dlp.utils import DownloadError, ExtractorError, PostProcessingError
 from rich.console import Console
@@ -268,7 +268,7 @@ class DownloadResult:
         }
 
 
-def classify_error(exception: Exception) -> tuple[ErrorCode, str]:
+def classify_error(exception: Exception) -> Tuple[ErrorCode, str]:
     """
     Classify an exception into an ErrorCode with a human-readable message.
     
@@ -321,7 +321,7 @@ def classify_error(exception: Exception) -> tuple[ErrorCode, str]:
     return ErrorCode.UNKNOWN_ERROR, f"Unexpected error: {exception}"
 
 
-def validate_url(url: str) -> tuple[bool, str]:
+def validate_url(url: str) -> Tuple[bool, str]:
     """
     Validate a YouTube URL format.
     
@@ -350,7 +350,7 @@ def validate_url(url: str) -> tuple[bool, str]:
     return False, f"Invalid YouTube URL format: {url}"
 
 
-def check_ffmpeg() -> tuple[bool, str]:
+def check_ffmpeg() -> Tuple[bool, str]:
     """
     Check if ffmpeg is available on the system.
     
@@ -363,7 +363,7 @@ def check_ffmpeg() -> tuple[bool, str]:
     return True, f"FFmpeg found: {ffmpeg_path}"
 
 
-def check_output_dir(output_dir: str) -> tuple[bool, str]:
+def check_output_dir(output_dir: str) -> Tuple[bool, str]:
     """
     Check if output directory is writable.
     
@@ -391,7 +391,7 @@ def check_output_dir(output_dir: str) -> tuple[bool, str]:
         return False, f"Cannot access directory {output_dir}: {e}"
 
 
-def run_preflight_checks(url: Optional[str], output_dir: str, quiet: bool = False) -> list[tuple[str, bool, str]]:
+def run_preflight_checks(url: Optional[str], output_dir: str, quiet: bool = False) -> List[Tuple[str, bool, str]]:
     """
     Run preflight validation checks before downloading.
     
@@ -877,7 +877,7 @@ def download_from_batch_file(
     rate_limit: Optional[str] = None,
     cookies_file: Optional[str] = None,
     log_file: Optional[str] = None,
-) -> tuple[List[DownloadResult], int]:
+) -> Tuple[List[DownloadResult], int]:
     """
     Download audio from multiple URLs in a batch file with detailed reporting.
     
