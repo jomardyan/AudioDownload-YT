@@ -1,238 +1,412 @@
-# YouTube MP3 Downloader
+# AudioDownload-YT
+
+<div align="center">
 
 ![Build and Test](https://github.com/jomardyan/AudioDownload-YT/actions/workflows/build.yml/badge.svg)
-![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)
-![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A robust, production-grade Python utility for downloading and converting audio from YouTube videos, playlists, and batch sources into multiple audio formats with advanced quality control, metadata management, and comprehensive error handling.
+**A professional, multi-platform media downloader supporting 9+ platforms with advanced quality control and metadata management.**
+
+[Features](#features) • [Installation](#installation) • [Quick Start](#quick-start) • [Documentation](#usage) • [Contributing](#contributing)
+
+</div>
+
+---
+
+## Overview
+
+AudioDownload-YT is a robust, production-grade Python utility for downloading and converting media from multiple platforms into various audio and video formats. Built with a modular plugin architecture, it supports YouTube, TikTok, Instagram, SoundCloud, Spotify, and more, offering advanced quality control, batch processing, and comprehensive error handling.
 
 ## Features
 
-**Core Capabilities**
-- Multiple audio quality presets (128 kbps, 192 kbps, 320 kbps, original)
-- Support for multiple formats: MP3, M4A, FLAC, WAV, OGG
-- Playlist download support with automatic metadata extraction
-- Batch processing with configurable failure handling
-- Comprehensive progress reporting with real-time metrics
+### 🎯 Core Capabilities
+- **Multiple Quality Presets**: 128 kbps, 192 kbps, 320 kbps, or original quality
+- **Format Support**: MP3, M4A, FLAC, WAV, OGG with FFmpeg-powered conversion
+- **Playlist Processing**: Automatic extraction and batch download with metadata
+- **Batch Operations**: Process multiple URLs from files with configurable failure handling
+- **Real-time Progress**: Rich terminal output with live progress tracking and metrics
 
-**Multi-Platform Plugin System**
-- Download from 9+ popular platforms: **YouTube, TikTok, Instagram, SoundCloud, Spotify, Twitch, Dailymotion, Vimeo, Reddit**
-- Extensible plugin architecture for adding new platforms
-- Unified interface across all supported platforms
+### 🔌 Multi-Platform Plugin System
+Download from **9+ popular platforms** with a unified interface:
+
+| Platform | Status | Playlist | Auth |
+|----------|--------|----------|------|
+| YouTube | ✅ | ✅ | Optional |
+| TikTok | ✅ | ✅ | ❌ |
+| Instagram | ✅ | ❌ | ❌ |
+| SoundCloud | ✅ | ✅ | ❌ |
+| Spotify | ✅ | ✅ | ❌ |
+| Twitch | ✅ | ❌ | ❌ |
+| Dailymotion | ✅ | ✅ | ❌ |
+| Vimeo | ✅ | ✅ | ❌ |
+| Reddit | ✅ | ❌ | ❌ |
+
+**Plugin Features:**
+- Extensible architecture for adding new platforms
 - Automatic platform detection from URL
-- Per-platform capability management (playlists, authentication, subtitles)
+- Per-platform capability management
+- Unified error handling and retry logic
 
-**Advanced Functionality**
-- Persistent download archive to prevent duplicate processing
-- Flexible configuration file system with multiple location support
-- Detailed logging and error classification
-- Dry-run mode for previewing downloads without processing
-- Network optimization: proxy support, rate limiting, cookie authentication
-- Automatic retry logic with exponential backoff
-- Pre-execution validation of dependencies and permissions
-- Customizable output directories and filename templates
+### ⚙️ Advanced Functionality
+- **Download Archive**: Persistent history to prevent duplicate downloads
+- **Configuration System**: Flexible INI-based configuration with multiple location support
+- **Error Handling**: Comprehensive error classification with automatic retry and exponential backoff
+- **Dry-run Mode**: Preview downloads without processing
+- **Network Features**: Proxy support, rate limiting, cookie authentication
+- **Metadata Management**: Automatic embedding of thumbnails and ID3 tags
+- **Customization**: Configurable output directories and filename templates
+- **Validation**: Pre-execution checks for dependencies and permissions
 
 ## System Requirements
 
-- **Python**: 3.8 or higher
-- **FFmpeg**: For audio format conversion
-- **Dependencies**: yt-dlp, rich (specified in requirements.txt)
+| Component | Requirement |
+|-----------|-------------|
+| **Python** | 3.8 or higher |
+| **FFmpeg** | Latest stable version |
+| **Dependencies** | yt-dlp, rich (see requirements.txt) |
+| **OS Support** | Windows, macOS, Linux |
+
+---
 
 ## Installation
 
-### 1. Clone Repository
+### Prerequisites
+
+Ensure you have Python 3.8+ and FFmpeg installed on your system.
+
+### Method 1: Quick Install (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/jomardyan/AudioDownload-YT.git
+cd AudioDownload-YT
+
+# Install with make (installs dependencies automatically)
+make install
+```
+
+### Method 2: Manual Installation
+
+#### 1. Clone Repository
 
 ```bash
 git clone https://github.com/jomardyan/AudioDownload-YT.git
 cd AudioDownload-YT
 ```
 
-### 2. Install Python Dependencies
+#### 2. Create Virtual Environment (Recommended)
+
+```bash
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+# On Windows:
+.venv\Scripts\activate
+# On macOS/Linux:
+source .venv/bin/activate
+```
+
+#### 3. Install Python Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Install FFmpeg
+#### 4. Install FFmpeg
 
-**Ubuntu/Debian:**
+<details>
+<summary><b>Windows</b></summary>
+
+**Option 1: Using Windows Package Manager (winget) — Recommended**
+```powershell
+winget install Gyan.FFmpeg
+```
+
+**Option 2: Using Chocolatey**
+```powershell
+choco install ffmpeg
+```
+
+**Option 3: Manual Installation**
+1. Download from [ffmpeg.org](https://ffmpeg.org/download.html)
+2. Extract to `C:\ffmpeg`
+3. Add `C:\ffmpeg\bin` to system PATH
+
+⚠️ **Important**: Restart your terminal after installation for PATH changes to take effect.
+</details>
+
+<details>
+<summary><b>macOS</b></summary>
+
+```bash
+brew install ffmpeg
+```
+</details>
+
+<details>
+<summary><b>Linux (Ubuntu/Debian)</b></summary>
+
 ```bash
 sudo apt-get update
 sudo apt-get install ffmpeg
 ```
 
-**macOS:**
+**For other distributions:**
+- Fedora: `sudo dnf install ffmpeg`
+- Arch: `sudo pacman -S ffmpeg`
+</details>
+
+### Method 3: Global Installation with pipx
+
+For system-wide access:
+
 ```bash
-brew install ffmpeg
+make pipx-install
 ```
 
-**Windows:**
+This allows you to run `ytdownloader` from anywhere without activating a virtual environment.
 
-Option 1: Using Windows Package Manager (winget) — **Recommended**
-```bash
-winget install Gyan.FFmpeg
-```
-
-Option 2: Using Chocolatey (if installed)
-```bash
-choco install ffmpeg
-```
-
-Option 3: Manual download
-Download from [ffmpeg.org](https://ffmpeg.org/download.html)
-
-**Important:** After installing FFmpeg via package manager, **restart your terminal/IDE/application** for the PATH changes to take effect.
-
-### 4. Verify Installation
+### Verify Installation
 
 ```bash
+# Check Python installation
+python --version
+
+# Check FFmpeg installation
+ffmpeg -version
+
+# Verify downloader
 python downloader.py --version
+
+# Test basic functionality
+python downloader.py --help
 ```
+
+---
 
 ## Quick Start
 
-### Download Single Video
+### Option 1: GUI (Graphical Interface)
+
+For the easiest experience, use the desktop GUI:
+
+```bash
+# Launch the GUI
+python ytdownloader_gui.py
+
+# Or use Make
+make gui
+```
+
+The GUI provides a visual interface with dropdowns, progress bars, and real-time logging. Perfect for users who prefer point-and-click over command-line.
+
+### Option 2: Command Line
+
+#### Download Single Video
 
 ```bash
 python downloader.py "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-### Download with Specific Quality and Format
+#### Download with Specific Quality and Format
 
 ```bash
 python downloader.py -q high -f flac "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-### Download Entire Playlist
+#### Download Entire Playlist
 
 ```bash
 python downloader.py -p "https://www.youtube.com/playlist?list=PLAYLIST_ID"
 ```
 
-### Batch Download from File
+#### Batch Download from File
 
 ```bash
 python downloader.py -b urls.txt
 ```
 
-## GUI (Desktop)
+## 🖥️ GUI (Desktop Application)
 
-This repo also includes a separate Tkinter GUI frontend that uses `downloader.py` as the backend.
+A feature-rich Tkinter GUI provides a user-friendly desktop interface for all downloader functionality.
 
-### Run GUI from source
+### Features
+
+**🎨 User Interface**
+- Clean, intuitive design with tabbed layout
+- Multi-line URL input with syntax highlighting
+- Real-time progress bars and status indicators
+- Rich logging with color-coded messages
+- Context menus with cut/copy/paste support
+- Keyboard shortcuts for common operations
+
+**⚙️ Configuration Options**
+- Quality presets (low, medium, high, best)
+- Format selection (MP3, M4A, FLAC, WAV, OGG)
+- Custom output directory with file browser
+- Playlist support toggle
+- Metadata and thumbnail embedding options
+- Configurable concurrent downloads (1-5)
+- Retry attempts configuration (0-20)
+- Download archive management
+- Custom filename templates
+
+**🔄 Download Management**
+- Batch processing from text files
+- Real-time progress tracking per download
+- Playlist progress with item counts
+- Cancel/pause functionality
+- Skip existing files option
+- Success/failure statistics
+- Detailed error reporting
+
+**📋 Additional Features**
+- Save/load URL lists from files
+- Export log to text file
+- About dialog with version info
+- Menu bar with File/Edit/Help menus
+- Platform-agnostic design (Windows, macOS, Linux)
+
+### Launch GUI
+
+<details>
+<summary><b>From Source</b></summary>
 
 ```bash
+# Direct execution
+python ytdownloader_gui.py
+
+# Using Make
+make gui
+```
+</details>
+
+<details>
+<summary><b>After Package Installation</b></summary>
+
+```bash
+# Using the GUI command
+ytdownloader-gui
+
+# Alternative alias
+ytdl-gui
+```
+</details>
+
+<details>
+<summary><b>With Virtual Environment</b></summary>
+
+```bash
+# Windows
+.venv\Scripts\activate
+python ytdownloader_gui.py
+
+# macOS/Linux
+source .venv/bin/activate
 python ytdownloader_gui.py
 ```
+</details>
 
-### Run GUI after installing as a package
+### GUI Workflow
 
-If installed via `pip` / `make install`, you can run:
+1. **Enter URLs**: Paste one or more URLs (one per line) in the text box
+2. **Configure Options**: Select quality, format, and output directory
+3. **Adjust Settings**: Enable/disable metadata, thumbnails, playlists
+4. **Start Download**: Click "Start" button to begin processing
+5. **Monitor Progress**: Watch real-time progress bars and logs
+6. **Review Results**: Check log for success/failure messages
 
-```bash
-ytdownloader-gui
-```
+### Keyboard Shortcuts
 
-## Using Makefile (Recommended)
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+O` | Open URLs from file |
+| `Ctrl+S` | Save log to file |
+| `Ctrl+C` | Copy selected text |
+| `Ctrl+V` | Paste from clipboard |
+| `Ctrl+X` | Cut selected text |
+| `Ctrl+A` | Select all text |
+| `Alt+F4` | Exit application |
 
-The project includes a **Makefile** with convenient shortcuts for common tasks. This is the recommended way to interact with the project.
+### GUI Requirements
 
-### Installation via Make
+The GUI uses Python's built-in `tkinter` module, which is included with most Python installations.
 
-```bash
-# Install package with dependencies
-make install
+**If tkinter is not installed:**
 
-# Install with development tools (testing, linting, formatting)
-make install-dev
+<details>
+<summary><b>Windows</b></summary>
 
-# Install globally for system-wide access
-make pipx-install
-```
+Tkinter is included by default. If missing, reinstall Python with "tcl/tk" option checked.
+</details>
 
-### Download Operations via Make
-
-```bash
-# Download single video
-make run URL='https://www.youtube.com/watch?v=VIDEO_ID'
-
-# Download with custom quality and format
-make run URL='https://www.youtube.com/watch?v=VIDEO_ID' ARGS='-q high -f flac'
-
-# Download entire playlist
-make run URL='https://www.youtube.com/playlist?list=PLAYLIST_ID'
-
-# Batch download from file
-make batch FILE='urls.txt'
-
-# Batch download with options
-make batch FILE='urls.txt' ARGS='-q best -f flac'
-
-# Preview download without processing (dry-run)
-make dry-run URL='https://www.youtube.com/watch?v=VIDEO_ID'
-```
-
-### Development & Quality Checks via Make
+<details>
+<summary><b>macOS</b></summary>
 
 ```bash
-# Run all tests
-make test
-
-# Run quick smoke tests only
-make smoke-test
-
-# Generate test coverage report (creates htmlcov/index.html)
-make coverage
-
-# Check code style and quality
-make lint
-
-# Auto-format code (black, isort)
-make format
-
-# Run security checks
-make security
-
-# Run all quality checks at once
-make check
-
-# Validate project structure and dependencies
-make validate
+# Usually included with Python
+# If missing, install Python from python.org or use Homebrew
+brew install python-tk@3.12
 ```
+</details>
 
-### Build & Distribution via Make
+<details>
+<summary><b>Linux (Ubuntu/Debian)</b></summary>
 
 ```bash
-# Clean build artifacts and cache
-make clean
-
-# Build distribution packages
-make build
-
-# Publish to PyPI (requires credentials)
-make publish
+sudo apt-get install python3-tk
 ```
+</details>
 
-### Information & Configuration via Make
+### GUI Screenshots
 
+*Coming soon: Screenshots of the desktop application in action*
+
+---
+
+## Using Makefile
+
+The project includes a comprehensive **Makefile** for streamlined operations. This is the recommended workflow for development and usage.
+
+### Quick Reference
+
+#### Installation
 ```bash
-# Show all available commands
-make help
-
-# Display current configuration
-make show-config
-
-# Show installed version
-make version
-
-# Watch for file changes and auto-run tests (requires pytest-watch)
-make watch
-
-# Setup pre-commit git hooks
-make pre-commit
+make install          # Install package with dependencies
+make install-dev      # Install with development tools
+make pipx-install     # Install globally via pipx
 ```
 
-### Make Command Reference
+#### Downloads
+```bash
+make run URL='<url>'                          # Download single video
+make run URL='<url>' ARGS='-q high -f flac'   # With custom options
+make batch FILE='urls.txt'                    # Batch download
+make dry-run URL='<url>'                      # Preview without downloading
+```
+
+#### Development & Testing
+```bash
+make test            # Run all tests
+make smoke-test      # Quick validation tests
+make coverage        # Generate coverage report
+make lint            # Check code quality
+make format          # Auto-format code
+make check           # Run all quality checks
+```
+
+#### Build & Distribution
+```bash
+make clean           # Remove build artifacts
+make build           # Build distribution packages
+make publish         # Publish to PyPI
+```
+
+<details>
+<summary><b>Complete Makefile Command Reference</b></summary>
 
 | Command | Purpose |
 |---------|---------|
@@ -242,46 +416,115 @@ make pre-commit
 | `make pipx-install` | Install globally via pipx |
 | `make pipx-uninstall` | Remove global installation |
 | **Downloads** | |
-| `make run URL=<url>` | Download single video |
-| `make batch FILE=<file>` | Download from batch file |
-| `make dry-run URL=<url>` | Preview download (no processing) |
+| `make run URL=<url> [ARGS=...]` | Download single video with optional arguments |
+| `make batch FILE=<file> [ARGS=...]` | Download from batch file |
+| `make dry-run URL=<url>` | Preview download without processing |
 | **Testing & Quality** | |
-| `make test` | Run all tests |
+| `make test` | Run complete test suite |
 | `make smoke-test` | Run quick validation tests |
-| `make coverage` | Generate coverage report |
-| `make lint` | Check code style |
-| `make format` | Auto-format code |
-| `make security` | Run security checks |
+| `make coverage` | Generate HTML coverage report |
+| `make lint` | Check code style and quality |
+| `make format` | Auto-format code (black, isort) |
+| `make security` | Run security scans (bandit, safety) |
 | `make check` | Run all quality checks |
 | `make validate` | Validate project structure |
-| **Build** | |
-| `make clean` | Remove build artifacts |
+| **Build & Deploy** | |
+| `make clean` | Remove build artifacts and cache |
 | `make build` | Build distribution packages |
 | `make publish` | Publish to PyPI |
-| **Information** | |
-| `make help` | Show help message |
-| `make show-config` | Display configuration |
-| `make version` | Show version |
-| `make watch` | Auto-run tests on changes |
-| `make pre-commit` | Setup git hooks |
+| **Utilities** | |
+| `make help` | Show all available commands |
+| `make show-config` | Display current configuration |
+| `make version` | Show installed version |
+| `make watch` | Auto-run tests on file changes |
+| `make pre-commit` | Setup git pre-commit hooks |
+
+</details>
+
+---
 
 ## Multi-Platform Plugin System
 
-The downloader now supports downloading from 9+ popular platforms through an extensible plugin system.
+The downloader supports **9+ popular platforms** through an extensible plugin architecture, providing a unified interface for all media sources.
 
 ### Supported Platforms
 
-| Platform | Features | Playlist | Auth | Formats |
-|----------|----------|----------|------|---------|
-| **YouTube** | Videos, Shorts, Music | ✓ | Optional | MP3, MP4, M4A, WAV, OGG, FLAC |
-| **TikTok** | Videos, Clips | ✓ | ✗ | MP3, MP4, M4A |
-| **Instagram** | Posts, Reels, Stories | ✗ | ✗ | MP3, MP4, M4A |
-| **SoundCloud** | Tracks, Playlists | ✓ | ✗ | MP3, M4A, OGG, WAV |
-| **Spotify** | Tracks, Playlists, Albums | ✓ | ✗ | MP3, M4A, OGG, WAV, FLAC |
-| **Twitch** | VODs, Clips, Highlights | ✗ | ✗ | MP3, MP4, M4A |
-| **Dailymotion** | Videos, Playlists | ✓ | ✗ | MP3, MP4, M4A |
-| **Vimeo** | Videos, Channels | ✓ | ✗ | MP3, MP4, M4A |
-| **Reddit** | Videos, Posts | ✗ | ✗ | MP3, MP4, M4A |
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Features</th>
+<th>Playlist</th>
+<th>Auth</th>
+<th>Formats</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>YouTube</strong></td>
+<td>Videos, Shorts, Music</td>
+<td align="center">✅</td>
+<td align="center">Optional</td>
+<td>MP3, MP4, M4A, WAV, OGG, FLAC</td>
+</tr>
+<tr>
+<td><strong>TikTok</strong></td>
+<td>Videos, Clips</td>
+<td align="center">✅</td>
+<td align="center">❌</td>
+<td>MP3, MP4, M4A</td>
+</tr>
+<tr>
+<td><strong>Instagram</strong></td>
+<td>Posts, Reels, Stories</td>
+<td align="center">❌</td>
+<td align="center">❌</td>
+<td>MP3, MP4, M4A</td>
+</tr>
+<tr>
+<td><strong>SoundCloud</strong></td>
+<td>Tracks, Playlists</td>
+<td align="center">✅</td>
+<td align="center">❌</td>
+<td>MP3, M4A, OGG, WAV</td>
+</tr>
+<tr>
+<td><strong>Spotify</strong></td>
+<td>Tracks, Playlists, Albums</td>
+<td align="center">✅</td>
+<td align="center">❌</td>
+<td>MP3, M4A, OGG, WAV, FLAC</td>
+</tr>
+<tr>
+<td><strong>Twitch</strong></td>
+<td>VODs, Clips, Highlights</td>
+<td align="center">❌</td>
+<td align="center">❌</td>
+<td>MP3, MP4, M4A</td>
+</tr>
+<tr>
+<td><strong>Dailymotion</strong></td>
+<td>Videos, Playlists</td>
+<td align="center">✅</td>
+<td align="center">❌</td>
+<td>MP3, MP4, M4A</td>
+</tr>
+<tr>
+<td><strong>Vimeo</strong></td>
+<td>Videos, Channels</td>
+<td align="center">✅</td>
+<td align="center">❌</td>
+<td>MP3, MP4, M4A</td>
+</tr>
+<tr>
+<td><strong>Reddit</strong></td>
+<td>Videos, Posts</td>
+<td align="center">❌</td>
+<td align="center">❌</td>
+<td>MP3, MP4, M4A</td>
+</tr>
+</tbody>
+</table>
 
 ### List Available Plugins
 
@@ -291,14 +534,14 @@ View all installed platform plugins and their capabilities:
 python downloader.py --list-plugins
 ```
 
-Output shows:
+**Output includes:**
 - Platform name and description
 - Supported content types (audio, video)
-- Output format options
-- Playlist support
+- Available output formats
+- Playlist support status
 - Authentication requirements
 
-### Multi-Platform Examples
+### Usage Examples
 
 ```bash
 # Download from TikTok
@@ -307,58 +550,67 @@ python downloader.py https://www.tiktok.com/@creator/video/123456789
 # Extract audio from Instagram Reel
 python downloader.py -f mp3 https://www.instagram.com/reel/ABC123/
 
-# Download SoundCloud track
-python downloader.py https://soundcloud.com/artist/track-name
+# Download SoundCloud track in high quality
+python downloader.py -q high https://soundcloud.com/artist/track-name
 
-# Get Spotify playlist as MP3s
-python downloader.py -p -q high https://open.spotify.com/playlist/PLAYLIST_ID
+# Get Spotify playlist as FLAC files
+python downloader.py -p -q best -f flac https://open.spotify.com/playlist/PLAYLIST_ID
 
 # Download Twitch VOD
 python downloader.py https://www.twitch.tv/videos/1234567890
 
 # Extract audio from Vimeo video
 python downloader.py -f mp3 https://vimeo.com/123456789
+
+# Batch download from multiple platforms
+python downloader.py -b mixed_urls.txt
 ```
 
 ### Platform-Specific Features
 
-The plugin system automatically detects the platform from the URL and applies appropriate settings:
+The plugin system provides intelligent platform handling:
 
-- **Automatic Format Support**: Each platform's plugin knows which formats are best supported
-- **Playlist Handling**: For playlists, automatically download all items if `-p` flag is used
-- **Quality Optimization**: Quality presets are translated to platform-specific settings
-- **Error Recovery**: Platform-specific error handling and retry logic
+- **🔍 Automatic Detection**: Platform identification from URL structure
+- **⚙️ Format Optimization**: Best format selection per platform
+- **📋 Playlist Support**: Recursive download for supported platforms
+- **🎚️ Quality Mapping**: Platform-specific quality preset translation
+- **🔄 Error Recovery**: Platform-aware retry logic and fallbacks
+- **📊 Metadata Extraction**: Rich metadata including artwork and tags
 
 ### Creating Custom Plugins
 
-To add support for a new platform, create a new plugin file in the `plugins/` directory:
+Extend the downloader with custom platform support by creating a plugin in `plugins/`:
 
 ```python
 from plugins.base import BaseConverter, PluginCapabilities, ContentType
 
 class MyPlatformConverter(BaseConverter):
+    """Custom converter for MyPlatform"""
+    
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
-            name="My Platform Converter",
+            name="MyPlatform Converter",
             version="1.0.0",
             platform="MyPlatform",
-            description="Download from MyPlatform",
-            # ... other capabilities
+            description="Download media from MyPlatform",
+            supported_content_types=[ContentType.AUDIO, ContentType.VIDEO],
+            supported_formats=["mp3", "mp4", "m4a"],
+            supports_playlists=True,
+            requires_authentication=False
         )
     
     def can_handle(self, url: str) -> bool:
-        # Return True if this converter handles the URL
-        pass
+        """Check if this converter can handle the URL"""
+        return "myplatform.com" in url.lower()
     
     def download(self, url: str, output_path: str, quality: str = 'medium', 
                  format: str = 'mp3', **kwargs):
-        # Implement download logic
+        """Implement download logic"""
+        # Your implementation here
         pass
-    
-    # ... implement other required methods
 ```
 
-Then register it in `plugins/__init__.py`:
+**Register the plugin** in [plugins/\_\_init\_\_.py](plugins/__init__.py):
 
 ```python
 from .my_platform import MyPlatformConverter
@@ -368,6 +620,10 @@ def register_default_plugins():
     registry.register('myplatform', MyPlatformConverter())
     # ... other registrations
 ```
+
+📚 **See** [PLUGIN_API.md](PLUGIN_API.md) for complete plugin development documentation.
+
+---
 
 ## Usage
 

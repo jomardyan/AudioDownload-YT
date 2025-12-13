@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test smoke-test lint format clean build publish run dry-run show-config version pipx-install pipx-uninstall check coverage pre-commit security validate watch list-plugins plugin-docs batch
+.PHONY: help install install-dev test smoke-test lint format clean build publish run dry-run show-config version pipx-install pipx-uninstall check coverage pre-commit security validate watch list-plugins plugin-docs batch gui gui-test
 
 # Color codes for output
 BLUE := \033[0;34m
@@ -38,6 +38,7 @@ help:
 	@echo "  make run URL=<url>   Download from YouTube URL"
 	@echo "  make dry-run URL=<url> Preview download without processing"
 	@echo "  make batch FILE=<file> Download from batch file"
+	@echo "  make gui             Launch desktop GUI application"
 	@echo ""
 	@echo "$(GREEN)Plugin System:$(NC)"
 	@echo "  make list-plugins    List all supported platform plugins"
@@ -55,6 +56,7 @@ help:
 	@echo "  make dry-run URL='https://www.youtube.com/watch?v=VIDEO_ID'"
 	@echo "  make run URL='https://www.tiktok.com/@creator/video/123456789'"
 	@echo "  make run URL='https://soundcloud.com/artist/track'"
+	@echo "  make gui                          # Launch desktop GUI"
 	@echo ""
 
 # Install the package
@@ -244,4 +246,18 @@ plugin-docs:
 	@echo ""
 	@echo "$(BLUE)Supported Platforms:$(NC)"
 	python downloader.py --list-plugins | grep -E "^[A-Z]" | head -15
+
+# Launch GUI application
+gui:
+	@echo "$(BLUE)→ Launching Desktop GUI...$(NC)"
+	@test -f ytdownloader_gui.py || (echo "$(RED)✗ ytdownloader_gui.py not found$(NC)" && exit 1)
+	@echo "$(GREEN)Starting GUI application...$(NC)"
+	python ytdownloader_gui.py
+
+# Test GUI imports and dependencies
+gui-test:
+	@echo "$(BLUE)→ Testing GUI dependencies...$(NC)"
+	@python -c "import tkinter; print('✓ tkinter available')" || (echo "$(RED)✗ tkinter not installed$(NC)" && exit 1)
+	@python -c "import ytdownloader_gui; print('✓ GUI module loads successfully')" || (echo "$(RED)✗ GUI module failed to load$(NC)" && exit 1)
+	@echo "$(GREEN)✓ GUI dependencies satisfied$(NC)"
 
