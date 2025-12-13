@@ -41,13 +41,14 @@ dev = [
 [project.scripts]
 ytdownloader = "downloader:main"
 ytdl = "downloader:main"
+ytdownloader-gui = "ytdownloader_gui:main"
 
 [project.urls]
 Homepage = "https://github.com/jomardyan/AudioDownload-YT"
 Issues = "https://github.com/jomardyan/AudioDownload-YT/issues"
 
 [tool.setuptools]
-py-modules = ["downloader"]
+py-modules = ["downloader", "ytdownloader_gui"]
 packages = ["plugins"]
 
 [tool.pytest.ini_options]

@@ -9,19 +9,22 @@ Plugin system for multi-platform support (YouTube, TikTok, Instagram, Spotify, S
 from __future__ import annotations
 
 import argparse
+import io
 import json
+import locale
 import logging
 import os
 import re
 import shutil
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from configparser import ConfigParser, RawConfigParser
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import yt_dlp
 from rich.console import Console
@@ -42,6 +45,40 @@ console = Console()
 
 # Version
 __version__ = "1.0.0"
+
+
+def _configure_stdio_for_unicode() -> None:
+    """Best-effort: avoid UnicodeEncode/Decode errors on Windows.
+
+    When output is redirected/captured, the parent process often decodes
+    using the system code page (e.g., cp1250/cp1252). For maximum
+    compatibility, keep the stream encoding but force `errors='replace'`
+    so Unicode symbols never crash the process.
+    """
+
+    preferred = locale.getpreferredencoding(False)
+
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if stream is None:
+            continue
+
+        encoding = getattr(stream, "encoding", None) or preferred
+
+        try:
+            stream.reconfigure(encoding=encoding, errors="replace")
+            continue
+        except Exception:
+            pass
+
+        try:
+            buffer = getattr(stream, "buffer", None)
+            if buffer is None:
+                continue
+            wrapped = io.TextIOWrapper(buffer, encoding=encoding, errors="replace")
+            setattr(sys, stream_name, wrapped)
+        except Exception:
+            pass
 
 
 # ============================================================================
@@ -266,9 +303,83 @@ def sanitize_filename(filename: str) -> str:
     return filename or 'untitled'
 
 
+def clean_youtube_url(url: str, force_single_video: bool = True) -> str:
+    """Clean YouTube URL by removing problematic playlist parameters.
+    
+    Args:
+        url: YouTube URL to clean
+        force_single_video: If True, remove auto-generated mix/radio playlist parameters
+        
+    Returns:
+        Cleaned URL
+    """
+    if not url or 'youtube.com' not in url.lower() and 'youtu.be' not in url.lower():
+        return url
+    
+    try:
+        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+        
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        
+        # Remove problematic parameters for single video downloads
+        if force_single_video:
+            # Remove auto-generated mix/radio parameters
+            list_param = params.get('list', [''])[0]
+            if list_param.startswith(('RDQM', 'RDMM', 'RDAO', 'RDCLAK', 'RDEM', 'RDAMVM', 'RDCMUC')):
+                params.pop('list', None)
+                params.pop('start_radio', None)
+                params.pop('rv', None)
+        
+        # Rebuild URL
+        new_query = urlencode(params, doseq=True)
+        cleaned = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+        
+        return cleaned
+    except Exception:
+        # If URL parsing fails, return original
+        return url
+
+
+def check_file_exists(output_dir: str, title: str, audio_format: str, filename_template: str) -> Optional[str]:
+    """Check if a file with the given title already exists in output directory.
+    
+    Args:
+        output_dir: Output directory path
+        title: Video title
+        audio_format: Audio format extension
+        filename_template: Filename template
+        
+    Returns:
+        Path to existing file if found, None otherwise
+    """
+    try:
+        safe_title = sanitize_filename(title)
+        
+        # Build expected filename from template
+        template_vars = {
+            'title': safe_title,
+            'ext': audio_format,
+        }
+        
+        expected_name = filename_template
+        for key, value in template_vars.items():
+            expected_name = expected_name.replace(f'%({key})s', str(value))
+        
+        expected_path = Path(output_dir) / expected_name
+        
+        if expected_path.exists() and expected_path.stat().st_size > 0:
+            return str(expected_path)
+        
+        return None
+    except Exception:
+        return None
+
+
 class ErrorCode(Enum):
     """Error classification codes"""
     SUCCESS = "success"
+    CANCELLED = "cancelled"
     NETWORK_ERROR = "network_error"
     EXTRACTION_ERROR = "extraction_error"
     POSTPROCESS_ERROR = "postprocess_error"
@@ -283,6 +394,7 @@ class ErrorCode(Enum):
 # Human-readable error messages
 ERROR_MESSAGES = {
     ErrorCode.SUCCESS: "Download completed successfully",
+    ErrorCode.CANCELLED: "Download cancelled",
     ErrorCode.NETWORK_ERROR: "Network error - check your internet connection",
     ErrorCode.EXTRACTION_ERROR: "Failed to extract video information",
     ErrorCode.POSTPROCESS_ERROR: "Error during audio conversion",
@@ -293,6 +405,11 @@ ERROR_MESSAGES = {
     ErrorCode.FFMPEG_ERROR: "FFmpeg error - ensure ffmpeg is installed",
     ErrorCode.UNKNOWN_ERROR: "An unexpected error occurred",
 }
+
+
+class DownloadCancelledError(Exception):
+    """Raised to cancel an in-progress download (used by GUI/callback clients)."""
+
 
 
 @dataclass
@@ -342,6 +459,9 @@ def classify_error(exception: Exception) -> Tuple[ErrorCode, str]:
         tuple: (ErrorCode, detailed message)
     """
     error_str = str(exception).lower()
+
+    if isinstance(exception, DownloadCancelledError):
+        return ErrorCode.CANCELLED, "Cancelled by user"
     
     # Check for specific yt-dlp exceptions
     if isinstance(exception, PostProcessingError):
@@ -435,14 +555,48 @@ def validate_url(url: str) -> Tuple[bool, str]:
 def check_ffmpeg() -> Tuple[bool, str]:
     """
     Check if ffmpeg is available on the system.
+    On Windows, also checks common installation paths and refreshes PATH.
     
     Returns:
         tuple: (is_available, error_message)
     """
+    # Try direct PATH search first
     ffmpeg_path = shutil.which('ffmpeg')
-    if not ffmpeg_path:
-        return False, "FFmpeg not found. Please install ffmpeg for audio conversion."
-    return True, f"FFmpeg found: {ffmpeg_path}"
+    if ffmpeg_path:
+        return True, f"FFmpeg found: {ffmpeg_path}"
+    
+    # Windows-specific: refresh PATH from environment and try again
+    if sys.platform == 'win32':
+        try:
+            import subprocess as sp
+            result = sp.run(
+                ['cmd', '/c', 'ffmpeg', '-version'],
+                capture_output=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                return True, "FFmpeg found via cmd refresh"
+        except Exception:
+            pass
+        
+        # Check common Windows installation paths
+        common_paths = [
+            Path.home() / 'AppData' / 'Local' / 'Microsoft' / 'WinGet' / 'Packages',
+            Path('C:/Program Files/ffmpeg'),
+            Path('C:/Program Files (x86)/ffmpeg'),
+            Path('C:/ffmpeg'),
+        ]
+        
+        for base_path in common_paths:
+            if base_path.exists():
+                # Search for ffmpeg.exe
+                try:
+                    for item in base_path.rglob('ffmpeg.exe'):
+                        return True, f"FFmpeg found: {item}"
+                except Exception:
+                    pass
+    
+    return False, "FFmpeg not found. Please install ffmpeg for audio conversion."
 
 
 def check_output_dir(output_dir: str) -> Tuple[bool, str]:
@@ -677,17 +831,29 @@ SUPPORTED_FORMATS = ['mp3', 'm4a', 'flac', 'wav', 'ogg']
 class DownloadProgress:
     """Custom progress tracker for downloads with error capture"""
     
-    def __init__(self, quiet: bool = False):
+    def __init__(
+        self,
+        quiet: bool = False,
+        progress_callback: Optional["ProgressCallback"] = None,
+        cancel_event: Optional["CancelEvent"] = None,
+    ):
         self.progress = None
         self.task = None
         self.current_file = ""
+        self.current_stage = "initializing"
         self.quiet = quiet
         self.last_error: Optional[str] = None
         self.downloaded_file: Optional[str] = None
+        self.progress_callback = progress_callback
+        self.cancel_event = cancel_event
     
     def hook(self, d: Dict[str, Any]):
         """Progress hook for yt-dlp"""
+        if self.cancel_event is not None and getattr(self.cancel_event, "is_set", lambda: False)():
+            raise DownloadCancelledError()
+
         if d['status'] == 'downloading':
+            self.current_stage = "downloading"
             if not self.progress and not self.quiet:
                 self.progress = Progress(
                     TextColumn("[bold blue]{task.description}"),
@@ -699,7 +865,7 @@ class DownloadProgress:
                 )
                 self.progress.start()
                 self.task = self.progress.add_task(
-                    f"[cyan]Downloading...",
+                    f"[cyan]⬇ Downloading audio stream...",
                     total=100
                 )
             
@@ -709,15 +875,50 @@ class DownloadProgress:
                 if total > 0:
                     percentage = (downloaded / total) * 100
                     self.progress.update(self.task, completed=percentage)
+
+            if self.progress_callback is not None:
+                total = d.get('total_bytes') or d.get('total_bytes_estimate')
+                downloaded = d.get('downloaded_bytes')
+                speed = d.get('speed')
+                eta = d.get('eta')
+                filename = d.get('filename')
+                try:
+                    self.progress_callback(
+                        {
+                            'status': 'downloading',
+                            'stage': 'downloading',
+                            'downloaded_bytes': downloaded,
+                            'total_bytes': total,
+                            'speed': speed,
+                            'eta': eta,
+                            'filename': filename,
+                        }
+                    )
+                except Exception:
+                    # Never allow UI callback failures to break downloads
+                    pass
         
         elif d['status'] == 'finished':
+            self.current_stage = "downloaded"
             if self.progress:
                 self.progress.update(self.task, completed=100)
                 self.progress.stop()
                 self.progress = None
             self.downloaded_file = d.get('filename', 'file')
             if not self.quiet:
-                console.print(f"[green]✓[/green] Downloaded: {self.downloaded_file}")
+                console.print(f"[green]✓[/green] Download complete")
+
+            if self.progress_callback is not None:
+                try:
+                    self.progress_callback(
+                        {
+                            'status': 'finished',
+                            'stage': 'downloaded',
+                            'filename': self.downloaded_file,
+                        }
+                    )
+                except Exception:
+                    pass
         
         elif d['status'] == 'error':
             if self.progress:
@@ -726,6 +927,18 @@ class DownloadProgress:
             self.last_error = d.get('error', 'Unknown error during download')
             if not self.quiet:
                 console.print(f"[red]✗[/red] Error during download: {self.last_error}")
+
+            if self.progress_callback is not None:
+                try:
+                    self.progress_callback(
+                        {
+                            'status': 'error',
+                            'stage': 'error',
+                            'error': self.last_error,
+                        }
+                    )
+                except Exception:
+                    pass
     
     def cleanup(self):
         """Clean up progress display if still active"""
@@ -735,6 +948,225 @@ class DownloadProgress:
             except Exception:
                 pass
             self.progress = None
+
+
+class CancelEvent:
+    """Protocol-like helper for typing; any object with is_set() -> bool works."""
+
+    def is_set(self) -> bool:  # pragma: no cover
+        raise NotImplementedError
+
+
+class ProgressCallback:
+    """Protocol-like helper for typing; called with a dict payload."""
+
+    def __call__(self, payload: Dict[str, Any]) -> None:  # pragma: no cover
+        raise NotImplementedError
+    
+    def cleanup(self):
+        """Clean up progress display if still active"""
+        if self.progress:
+            try:
+                self.progress.stop()
+            except Exception:
+                pass
+            self.progress = None
+
+
+def _download_single_from_playlist(
+    entry: Dict[str, Any],
+    index: int,
+    total: int,
+    output_dir: str,
+    quality: str,
+    audio_format: str,
+    embed_metadata: bool,
+    embed_thumbnail: bool,
+    filename_template: str,
+    max_retries: int,
+    archive_file: Optional[str],
+    proxy: Optional[str],
+    rate_limit: Optional[str],
+    cookies_file: Optional[str],
+    skip_existing: bool,
+) -> DownloadResult:
+    """Download a single entry from a playlist."""
+    video_url = entry.get('webpage_url') or entry.get('url')
+    video_title = entry.get('title', 'Unknown')
+    video_id = entry.get('id', 'unknown')
+    
+    # Check if file already exists
+    if skip_existing:
+        existing = check_file_exists(output_dir, video_title, audio_format, filename_template)
+        if existing:
+            return DownloadResult(
+                success=True,
+                url=video_url,
+                title=video_title,
+                output_path=existing,
+                error_code=ErrorCode.SUCCESS,
+                skipped=True,
+                attempts=0,
+                duration_seconds=0.0,
+            )
+    
+    # Download the video
+    return download_audio(
+        url=video_url,
+        output_dir=output_dir,
+        quality=quality,
+        audio_format=audio_format,
+        embed_metadata=embed_metadata,
+        embed_thumbnail=embed_thumbnail,
+        filename_template=filename_template,
+        quiet=True,  # Suppress individual output
+        is_playlist=False,
+        max_retries=max_retries,
+        archive_file=archive_file,
+        proxy=proxy,
+        rate_limit=rate_limit,
+        cookies_file=cookies_file,
+        concurrent_downloads=1,
+        skip_existing=False,  # Already checked above
+    )
+
+
+def _download_playlist(
+    entries: List[Dict[str, Any]],
+    output_dir: str,
+    quality: str,
+    audio_format: str,
+    embed_metadata: bool,
+    embed_thumbnail: bool,
+    filename_template: str,
+    quiet: bool,
+    max_retries: int,
+    archive_file: Optional[str],
+    proxy: Optional[str],
+    rate_limit: Optional[str],
+    cookies_file: Optional[str],
+    progress_callback: Optional[ProgressCallback],
+    cancel_event: Optional[CancelEvent],
+    concurrent_downloads: int,
+    skip_existing: bool,
+    playlist_progress_callback: Optional[Callable[[int, int, str], None]],
+    playlist_title: str,
+    start_time: float,
+) -> DownloadResult:
+    """Download all entries from a playlist with concurrent processing."""
+    total = len(entries)
+    results = []
+    successful = 0
+    skipped = 0
+    failed = 0
+    
+    if not quiet:
+        console.print(f"[cyan]⚙ Concurrent downloads:[/cyan] {concurrent_downloads}")
+        console.print(f"[cyan]⚙ Skip existing:[/cyan] {'Yes' if skip_existing else 'No'}\\n")
+    
+    # Use ThreadPoolExecutor for concurrent downloads
+    with ThreadPoolExecutor(max_workers=concurrent_downloads) as executor:
+        # Submit all tasks
+        future_to_entry = {}
+        for idx, entry in enumerate(entries, 1):
+            if cancel_event and cancel_event.is_set():
+                break
+                
+            future = executor.submit(
+                _download_single_from_playlist,
+                entry=entry,
+                index=idx,
+                total=total,
+                output_dir=output_dir,
+                quality=quality,
+                audio_format=audio_format,
+                embed_metadata=embed_metadata,
+                embed_thumbnail=embed_thumbnail,
+                filename_template=filename_template,
+                max_retries=max_retries,
+                archive_file=archive_file,
+                proxy=proxy,
+                rate_limit=rate_limit,
+                cookies_file=cookies_file,
+                skip_existing=skip_existing,
+            )
+            future_to_entry[future] = (idx, entry)
+        
+        # Process completed downloads
+        for future in as_completed(future_to_entry):
+            if cancel_event and cancel_event.is_set():
+                break
+            
+            idx, entry = future_to_entry[future]
+            try:
+                result = future.result()
+                results.append(result)
+                
+                if result.success:
+                    if result.skipped:
+                        skipped += 1
+                        if not quiet:
+                            console.print(f"[yellow]⊘[/yellow] [{idx}/{total}] {result.title} [dim](skipped - already exists)[/dim]")
+                    else:
+                        successful += 1
+                        if not quiet:
+                            console.print(f"[green]✓[/green] [{idx}/{total}] {result.title}")
+                else:
+                    failed += 1
+                    if not quiet:
+                        console.print(f"[red]✗[/red] [{idx}/{total}] {result.title}: {result.error_message}")
+                
+                # Update playlist progress
+                if playlist_progress_callback:
+                    try:
+                        playlist_progress_callback(len(results), total, result.title or 'Unknown')
+                    except Exception:
+                        pass
+                
+                # Send progress update
+                if progress_callback:
+                    try:
+                        progress_callback({
+                            'status': 'playlist_progress',
+                            'current': len(results),
+                            'total': total,
+                            'successful': successful,
+                            'skipped': skipped,
+                            'failed': failed,
+                            'title': result.title,
+                        })
+                    except Exception:
+                        pass
+                        
+            except Exception as e:
+                failed += 1
+                error_title = entry.get('title', 'Unknown')
+                if not quiet:
+                    console.print(f"[red]✗[/red] [{idx}/{total}] {error_title}: {str(e)}")
+    
+    # Summary
+    duration = time.time() - start_time
+    
+    if not quiet:
+        console.print(f"\\n[bold cyan]═══ Playlist Summary ═══[/bold cyan]")
+        console.print(f"[green]✓ Successful:[/green] {successful}")
+        if skipped > 0:
+            console.print(f"[yellow]⊘ Skipped:[/yellow] {skipped}")
+        if failed > 0:
+            console.print(f"[red]✗ Failed:[/red] {failed}")
+        console.print(f"[cyan]⏱ Total time:[/cyan] {duration:.1f}s\\n")
+    
+    # Return result for the playlist as a whole
+    return DownloadResult(
+        success=(successful + skipped) > 0,
+        url=f"playlist:{playlist_title}",
+        title=f"{playlist_title} ({successful + skipped}/{total})",
+        output_path=output_dir,
+        error_code=ErrorCode.SUCCESS if failed == 0 else ErrorCode.UNKNOWN_ERROR,
+        error_message=f"{failed} videos failed" if failed > 0 else "",
+        attempts=1,
+        duration_seconds=duration,
+    )
 
 
 def download_audio(
@@ -753,6 +1185,11 @@ def download_audio(
     proxy: Optional[str] = None,
     rate_limit: Optional[str] = None,
     cookies_file: Optional[str] = None,
+    progress_callback: Optional[ProgressCallback] = None,
+    cancel_event: Optional[CancelEvent] = None,
+    concurrent_downloads: int = 1,
+    skip_existing: bool = True,
+    playlist_progress_callback: Optional[Callable[[int, int, str], None]] = None,
 ) -> DownloadResult:
     """
     Download audio from a YouTube video or playlist with retry support.
@@ -773,12 +1210,24 @@ def download_audio(
         proxy: Proxy URL (e.g., socks5://127.0.0.1:1080)
         rate_limit: Download rate limit (e.g., 1M, 500K)
         cookies_file: Path to cookies file for authentication
+        progress_callback: Callback for progress updates
+        cancel_event: Event to check for cancellation
+        concurrent_downloads: Number of concurrent downloads for playlists (1-5)
+        skip_existing: Skip files that already exist
+        playlist_progress_callback: Callback for playlist progress (current, total, title)
         
     Returns:
         DownloadResult: Structured result with success/failure details
     """
     start_time = time.time()
     video_title: Optional[str] = None
+    
+    # Clean URL if not explicitly downloading playlist
+    if not is_playlist:
+        original_url = url
+        url = clean_youtube_url(url, force_single_video=True)
+        if url != original_url and not quiet:
+            console.print(f"[dim]→ Cleaned URL (removed auto-generated playlist parameters)[/dim]")
     
     # Get quality bitrate
     bitrate = QUALITY_PRESETS.get(quality, '192')
@@ -812,13 +1261,18 @@ def download_audio(
         ])
     
     # Setup progress tracking
-    progress_tracker = DownloadProgress(quiet=quiet)
+    progress_tracker = DownloadProgress(
+        quiet=quiet,
+        progress_callback=progress_callback,
+        cancel_event=cancel_event,
+    )
     
     # Configure yt-dlp options
+    outtmpl_path = str(Path(output_dir) / filename_template)
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': postprocessors,
-        'outtmpl': f'{output_dir}/{filename_template}',
+        'outtmpl': outtmpl_path,
         'progress_hooks': [progress_tracker.hook],
         'quiet': True,  # We handle output ourselves
         'no_warnings': quiet,
@@ -827,6 +1281,22 @@ def download_audio(
         'continuedl': True,  # Resume partial downloads
         'ignoreerrors': False,
     }
+    
+    # Detect and set ffmpeg location if available
+    ffmpeg_location = shutil.which('ffmpeg')
+    if ffmpeg_location:
+        ydl_opts['ffmpeg_location'] = ffmpeg_location
+    else:
+        # Try common Windows locations
+        common_paths = [
+            r'C:\ffmpeg\bin\ffmpeg.exe',
+            r'C:\Program Files\ffmpeg\bin\ffmpeg.exe',
+            r'C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe',
+        ]
+        for path in common_paths:
+            if Path(path).exists():
+                ydl_opts['ffmpeg_location'] = path
+                break
     
     # Archive file for tracking completed downloads
     if archive_file:
@@ -863,22 +1333,104 @@ def download_audio(
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 # Extract info first to show details
+                if not quiet:
+                    console.print(f"[dim]→ Extracting video information...[/dim]")
+                
                 info = ydl.extract_info(url, download=False)
+                
+                # Check if info extraction was successful
+                if info is None:
+                    raise ExtractorError(
+                        "Failed to extract video information. Possible reasons:\n"
+                        "  • Video is private or members-only\n"
+                        "  • Video has been removed\n"
+                        "  • Geographic restriction\n"
+                        "  • Age-restricted content requiring authentication\n"
+                        "Try using the direct video URL without playlist parameters."
+                    )
+                
                 video_title = info.get('title', 'Unknown')
                 
+                # Handle playlist with concurrent downloads
                 if is_playlist or 'entries' in info:
-                    # Handle playlist
                     entries = info.get('entries', [])
-                    if entries and not quiet:
-                        console.print(f"[bold green]Playlist detected:[/bold green] {info.get('title', 'Unknown')}")
-                        console.print(f"[bold green]Videos:[/bold green] {len(entries)}\n")
-                        
-                        for idx, entry in enumerate(entries, 1):
-                            if entry:
-                                console.print(f"[bold cyan]({idx}/{len(entries)})[/bold cyan] {entry.get('title', 'Unknown')}")
+                    valid_entries = [e for e in entries if e is not None]
+                    
+                    if not valid_entries:
+                        raise ExtractorError("No valid videos found in playlist")
+                    
+                    if not quiet:
+                        console.print(f"[bold green]✓ Playlist detected:[/bold green] {info.get('title', 'Unknown')}")
+                        console.print(f"[bold green]📋 Total videos:[/bold green] {len(valid_entries)}\n")
+                    
+                    if playlist_progress_callback:
+                        try:
+                            playlist_progress_callback(0, len(valid_entries), info.get('title', 'Unknown'))
+                        except Exception:
+                            pass
+                    
+                    # Process playlist entries
+                    return _download_playlist(
+                        entries=valid_entries,
+                        output_dir=output_dir,
+                        quality=quality,
+                        audio_format=audio_format,
+                        embed_metadata=embed_metadata,
+                        embed_thumbnail=embed_thumbnail,
+                        filename_template=filename_template,
+                        quiet=quiet,
+                        max_retries=max_retries,
+                        archive_file=archive_file,
+                        proxy=proxy,
+                        rate_limit=rate_limit,
+                        cookies_file=cookies_file,
+                        progress_callback=progress_callback,
+                        cancel_event=cancel_event,
+                        concurrent_downloads=max(1, min(5, concurrent_downloads)),
+                        skip_existing=skip_existing,
+                        playlist_progress_callback=playlist_progress_callback,
+                        playlist_title=info.get('title', 'Unknown'),
+                        start_time=start_time,
+                    )
+                
+                # Notify about post-processing stages
+                if progress_callback is not None:
+                    try:
+                        progress_callback({'status': 'processing', 'stage': 'extracting', 'message': 'Extracting video information'})
+                    except Exception:
+                        pass
                 
                 # Download
+                if not quiet:
+                    console.print(f"[dim]→ Starting download...[/dim]")
+                
                 ydl.download([url])
+                
+                # Post-processing notifications
+                if not quiet:
+                    console.print(f"[yellow]♪[/yellow] Converting to {audio_format.upper()}...")
+                
+                if progress_callback is not None:
+                    try:
+                        progress_callback({'status': 'processing', 'stage': 'converting', 'message': f'Converting to {audio_format.upper()}'})
+                    except Exception:
+                        pass
+                
+                if embed_metadata and not quiet:
+                    console.print(f"[dim]→ Embedding metadata...[/dim]")
+                if embed_metadata and progress_callback is not None:
+                    try:
+                        progress_callback({'status': 'processing', 'stage': 'metadata', 'message': 'Embedding metadata'})
+                    except Exception:
+                        pass
+                
+                if embed_thumbnail and not quiet:
+                    console.print(f"[dim]→ Embedding thumbnail...[/dim]")
+                if embed_thumbnail and progress_callback is not None:
+                    try:
+                        progress_callback({'status': 'processing', 'stage': 'thumbnail', 'message': 'Embedding thumbnail'})
+                    except Exception:
+                        pass
                 
                 if not quiet:
                     console.print(f"\n[bold green]✓ Download completed successfully![/bold green]\n")
@@ -893,6 +1445,19 @@ def download_audio(
                     duration_seconds=time.time() - start_time
                 )
         
+        except DownloadCancelledError as e:
+            progress_tracker.cleanup()
+            return DownloadResult(
+                success=False,
+                url=url,
+                title=video_title,
+                error_code=ErrorCode.CANCELLED,
+                error_message="Cancelled by user",
+                exception=e,
+                attempts=attempt,
+                duration_seconds=time.time() - start_time,
+            )
+
         except (DownloadError, ExtractorError, PostProcessingError) as e:
             progress_tracker.cleanup()
             last_exception = e
@@ -1135,6 +1700,8 @@ def _print_batch_summary(results: List[DownloadResult], all_urls: List[str]):
 
 def main():
     """Main entry point"""
+    _configure_stdio_for_unicode()
+
     # Load config file defaults
     config = load_config()
     

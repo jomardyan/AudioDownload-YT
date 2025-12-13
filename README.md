@@ -67,10 +67,21 @@ brew install ffmpeg
 ```
 
 **Windows:**
-Download from [ffmpeg.org](https://ffmpeg.org/download.html) or use:
+
+Option 1: Using Windows Package Manager (winget) — **Recommended**
+```bash
+winget install Gyan.FFmpeg
+```
+
+Option 2: Using Chocolatey (if installed)
 ```bash
 choco install ffmpeg
 ```
+
+Option 3: Manual download
+Download from [ffmpeg.org](https://ffmpeg.org/download.html)
+
+**Important:** After installing FFmpeg via package manager, **restart your terminal/IDE/application** for the PATH changes to take effect.
 
 ### 4. Verify Installation
 
@@ -102,6 +113,24 @@ python downloader.py -p "https://www.youtube.com/playlist?list=PLAYLIST_ID"
 
 ```bash
 python downloader.py -b urls.txt
+```
+
+## GUI (Desktop)
+
+This repo also includes a separate Tkinter GUI frontend that uses `downloader.py` as the backend.
+
+### Run GUI from source
+
+```bash
+python ytdownloader_gui.py
+```
+
+### Run GUI after installing as a package
+
+If installed via `pip` / `make install`, you can run:
+
+```bash
+ytdownloader-gui
 ```
 
 ## Using Makefile (Recommended)
