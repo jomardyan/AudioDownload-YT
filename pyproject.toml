@@ -50,8 +50,13 @@ Issues = "https://github.com/jomardyan/AudioDownload-YT/issues"
 [tool.setuptools]
 py-modules = ["downloader", "ytdownloader_gui"]
 packages = ["plugins"]
+package-dir = {"" = "."}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short"
+
+[tool.isort]
+profile = "black"
+line_length = 88

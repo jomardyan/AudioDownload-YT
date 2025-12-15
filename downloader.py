@@ -339,7 +339,7 @@ def clean_youtube_url(url: str, force_single_video: bool = True) -> str:
         return url
 
     try:
-        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+        from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
         parsed = urlparse(url)
         params = parse_qs(parsed.query)

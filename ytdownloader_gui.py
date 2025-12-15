@@ -9,14 +9,15 @@ Run:
 
 from __future__ import annotations
 
+import argparse
 import queue
+import sys
 import threading
+import tkinter as tk
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from typing import Any, Dict, List, Optional
 
 import downloader
 
@@ -718,6 +719,25 @@ class App:
 
 
 def main() -> None:
+    # Parse arguments before initializing GUI (for --help, --version in headless environments)
+    parser = argparse.ArgumentParser(
+        description="YouTube MP3 Downloader - Tkinter GUI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"ytdownloader-gui {downloader.__version__}",
+    )
+
+    # Check for help/version before tkinter initialization (fixes CI/headless issues)
+    if "--help" in sys.argv or "-h" in sys.argv or "--version" in sys.argv:
+        parser.parse_args()
+        return
+
+    # Parse remaining args (currently none, but ready for future expansion)
+    args = parser.parse_args()
+
     root = tk.Tk()
 
     # Improve default appearance on Windows
