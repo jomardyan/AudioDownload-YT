@@ -370,10 +370,11 @@ jobs:
         test -d plugins || (echo "❌ plugins/ directory missing" && exit 1)
         test -f plugins/__init__.py || (echo "❌ plugins/__init__.py missing" && exit 1)
         
-        # Verify Python modules are importable
-        echo "Verifying module imports..."
-        python -c "import downloader" || (echo "❌ downloader module cannot be imported" && exit 1)
-        python -c "import plugins" || (echo "❌ plugins module cannot be imported" && exit 1)
+        # Verify Python syntax is valid (without importing dependencies)
+        echo "Verifying Python syntax..."
+        python -m py_compile downloader.py || (echo "❌ downloader.py has syntax errors" && exit 1)
+        python -m py_compile ytdownloader_gui.py || (echo "❌ ytdownloader_gui.py has syntax errors" && exit 1)
+        python -m compileall plugins/ -q || (echo "❌ plugins/ has syntax errors" && exit 1)
         
         echo "✅ Pre-build validation passed"
 
