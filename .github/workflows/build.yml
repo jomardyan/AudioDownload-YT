@@ -49,16 +49,16 @@ jobs:
     - name: Code formatting check (Black)
       run: |
         black --check --diff . || {
-          echo "❌ Code formatting issues detected"
-          echo "💡 Fix with: black ."
+          echo "Code formatting issues detected"
+          echo "Fix with: black ."
           exit 1
         }
 
     - name: Import sorting check (isort)
       run: |
         isort --check-only --diff . || {
-          echo "❌ Import sorting issues detected"
-          echo "💡 Fix with: isort ."
+          echo "Import sorting issues detected"
+          echo "Fix with: isort ."
           exit 1
         }
 
@@ -111,21 +111,21 @@ jobs:
 
     - name: Run Bandit security scanner
       run: |
-        echo "🔒 Running Bandit security analysis..."
+        echo "Running Bandit security analysis..."
         bandit -r . -f json -o bandit-report.json --exit-zero
         bandit -r . -f screen --exit-zero
       continue-on-error: true
 
     - name: Check dependencies with Safety
       run: |
-        echo "🔍 Checking dependencies for known vulnerabilities..."
-        safety check --json || echo "⚠️ Vulnerabilities detected"
+        echo "Checking dependencies for known vulnerabilities..."
+        safety check --json || echo "Vulnerabilities detected"
       continue-on-error: true
 
     - name: Audit dependencies with pip-audit
       run: |
-        echo "🔎 Auditing Python packages..."
-        pip-audit --desc --format json || echo "⚠️ Issues found"
+        echo "Auditing Python packages..."
+        pip-audit --desc --format json || echo "Issues found"
       continue-on-error: true
 
     - name: Upload security reports
@@ -190,11 +190,11 @@ jobs:
     - name: Install project dependencies
       shell: bash
       run: |
-        echo "📦 Installing dependencies..."
+        echo "Installing dependencies..."
         pip install -r requirements.txt || {
-          echo "❌ Dependency installation failed"
+          echo "Dependency installation failed"
           echo ""
-          echo "🔍 Diagnostic information:"
+          echo "Diagnostic information:"
           cat requirements.txt
           exit 1
         }
@@ -205,13 +205,13 @@ jobs:
     - name: Install test dependencies
       shell: bash
       run: |
-        echo "🧪 Installing test dependencies..."
+        echo "Installing test dependencies..."
         pip install pytest pytest-cov pytest-xdist pytest-timeout pytest-mock
 
     - name: Run test suite
       shell: bash
       run: |
-        echo "🧪 Running tests with coverage..."
+        echo "Running tests with coverage..."
         pytest tests/ -v \
           --cov=. \
           --cov-report=xml \
@@ -220,20 +220,20 @@ jobs:
           -n auto \
           --timeout=300 \
           --tb=short || {
-          echo "❌ Tests failed"
+          echo "Tests failed"
           echo ""
-          echo "🔍 Test environment:"
+          echo "Test environment:"
           echo "Python: $(python --version)"
           echo "pytest: $(pytest --version)"
           echo ""
-          echo "📋 Installed packages:"
+          echo "Installed packages:"
           pip list
           echo ""
-          echo "📂 Test directory structure:"
+          echo "Test directory structure:"
           ls -la tests/
           exit 1
         }
-        echo "✅ All tests passed"
+        echo "All tests passed"
       timeout-minutes: 10
       env:
         COVERAGE_CORE: sysmon
@@ -252,53 +252,53 @@ jobs:
     - name: Compile Python files
       shell: bash
       run: |
-        echo "⚙️ Compiling Python files..."
+        echo "Compiling Python files..."
         python -m py_compile downloader.py
         python -m compileall plugins/ -q
         python -m compileall tests/ -q
-        echo "✅ Compilation successful"
+        echo "Compilation successful"
 
     - name: Verify imports
       shell: bash
       run: |
-        echo "🔍 Verifying imports..."
-        python -c "import downloader; print('✓ downloader imported')" || {
-          echo "❌ Failed to import downloader"
+        echo "Verifying imports..."
+        python -c "import downloader; print('OK: downloader imported')" || {
+          echo "Failed to import downloader"
           echo ""
-          echo "🔍 Python environment:"
+          echo "Python environment:"
           python -c "import sys; print('Python path:'); print('\n'.join(sys.path))"
           echo ""
-          echo "📂 Current directory:"
+          echo "Current directory:"
           ls -la
           exit 1
         }
         
-        python -c "from plugins import get_global_registry; print('✓ plugins imported')" || {
-          echo "❌ Failed to import plugins"
+        python -c "from plugins import get_global_registry; print('OK: plugins imported')" || {
+          echo "Failed to import plugins"
           echo ""
-          echo "📁 Plugins directory:"
+          echo "Plugins directory:"
           ls -la plugins/
           exit 1
         }
         
-        echo "✅ All imports successful"
+        echo "All imports successful"
 
     - name: Test CLI interface
       shell: bash
       run: |
-        echo "🖥️ Testing CLI..."
+        echo "Testing CLI..."
         python downloader.py --help
         python downloader.py --version
         python downloader.py --show-config
         python downloader.py --list-plugins
-        echo "✅ CLI tests passed"
+        echo "CLI tests passed"
 
     - name: Test GUI module imports
       shell: bash
       run: |
-        echo "🎨 Testing GUI module..."
-        python -c "import ytdownloader_gui; print('✓ GUI module imports successfully')"
-        echo "✅ GUI module test passed"
+        echo "Testing GUI module..."
+        python -c "import ytdownloader_gui; print('OK: GUI module imports successfully')"
+        echo "GUI module test passed"
       continue-on-error: true  # tkinter may not be available in all CI environments
 
     - name: Archive test artifacts
@@ -333,84 +333,84 @@ jobs:
 
     - name: Install build tools
       run: |
-        echo "📦 Installing build tools..."
+        echo "Installing build tools..."
         python -m pip install --upgrade pip setuptools wheel
         pip install build twine check-wheel-contents
         pip list | grep -E "(build|twine|setuptools|wheel)"
 
     - name: Validate package configuration
       run: |
-        echo "🔍 Validating pyproject.toml..."
+        echo "Validating pyproject.toml..."
         if [ ! -f pyproject.toml ]; then
-          echo "❌ ERROR: pyproject.toml not found"
+          echo "ERROR: pyproject.toml not found"
           exit 1
         fi
         
-        echo "✓ pyproject.toml found"
-        echo "📋 Configuration:"
+        echo "pyproject.toml found"
+        echo "Configuration:"
         python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f))" || \
         python -c "import tomli; f=open('pyproject.toml','rb'); print(tomli.load(f))" || \
-        echo "⚠️ Cannot parse TOML (Python < 3.11 without tomli)"
+        echo "Cannot parse TOML (Python < 3.11 without tomli)"
         
         echo ""
-        echo "📂 Project structure:"
+        echo "Project structure:"
         ls -la
         echo ""
-        echo "📁 Plugins directory:"
-        ls -la plugins/ || echo "⚠️ plugins/ directory not found"
+        echo "Plugins directory:"
+        ls -la plugins/ || echo "plugins/ directory not found"
 
     - name: Pre-build validation
       run: |
-        echo "🔍 Pre-build validation..."
+        echo "Pre-build validation..."
         
         # Check required files exist
         echo "Checking required files..."
-        test -f downloader.py || (echo "❌ downloader.py missing" && exit 1)
-        test -f ytdownloader_gui.py || (echo "❌ ytdownloader_gui.py missing" && exit 1)
-        test -d plugins || (echo "❌ plugins/ directory missing" && exit 1)
-        test -f plugins/__init__.py || (echo "❌ plugins/__init__.py missing" && exit 1)
+        test -f downloader.py || (echo "downloader.py missing" && exit 1)
+        test -f ytdownloader_gui.py || (echo "ytdownloader_gui.py missing" && exit 1)
+        test -d plugins || (echo "plugins/ directory missing" && exit 1)
+        test -f plugins/__init__.py || (echo "plugins/__init__.py missing" && exit 1)
         
         # Verify Python syntax is valid (without importing dependencies)
         echo "Verifying Python syntax..."
-        python -m py_compile downloader.py || (echo "❌ downloader.py has syntax errors" && exit 1)
-        python -m py_compile ytdownloader_gui.py || (echo "❌ ytdownloader_gui.py has syntax errors" && exit 1)
-        python -m compileall plugins/ -q || (echo "❌ plugins/ has syntax errors" && exit 1)
+        python -m py_compile downloader.py || (echo "downloader.py has syntax errors" && exit 1)
+        python -m py_compile ytdownloader_gui.py || (echo "ytdownloader_gui.py has syntax errors" && exit 1)
+        python -m compileall plugins/ -q || (echo "plugins/ has syntax errors" && exit 1)
         
-        echo "✅ Pre-build validation passed"
+        echo "Pre-build validation passed"
 
     - name: Build source and wheel distributions
       run: |
-        echo "🏗️ Building distributions..."
+        echo "Building distributions..."
         python -m build --verbose || {
-          echo "❌ Build failed!"
+          echo "Build failed!"
           echo ""
-          echo "🔍 Diagnostic information:"
+          echo "Diagnostic information:"
           echo "Python version: $(python --version)"
           echo "pip version: $(pip --version)"
           echo ""
-          echo "📋 Installed packages:"
+          echo "Installed packages:"
           pip list
           echo ""
-          echo "📂 Current directory contents:"
+          echo "Current directory contents:"
           ls -la
           echo ""
-          echo "📄 pyproject.toml content:"
+          echo "pyproject.toml content:"
           cat pyproject.toml
           exit 1
         }
         
         echo ""
-        echo "✅ Build completed successfully"
+        echo "Build completed successfully"
         echo ""
-        echo "📦 Generated distributions:"
+        echo "Generated distributions:"
         ls -lh dist/
         echo ""
-        echo "📊 Distribution details:"
+        echo "Distribution details:"
         du -h dist/*
 
     - name: Verify distributions exist
       run: |
-        echo "🔍 Verifying generated distributions..."
+        echo "Verifying generated distributions..."
         
         # Check for expected files
         WHEEL_COUNT=$(ls -1 dist/*.whl 2>/dev/null | wc -l)
@@ -419,30 +419,30 @@ jobs:
         echo "Found $WHEEL_COUNT wheel(s) and $TARBALL_COUNT source distribution(s)"
         
         if [ "$WHEEL_COUNT" -eq 0 ]; then
-          echo "❌ ERROR: No wheel (.whl) file generated"
-          echo "📂 dist/ directory contents:"
+          echo "ERROR: No wheel (.whl) file generated"
+          echo "dist/ directory contents:"
           ls -la dist/ || echo "dist/ directory does not exist"
           exit 1
         fi
         
         if [ "$TARBALL_COUNT" -eq 0 ]; then
-          echo "❌ ERROR: No source distribution (.tar.gz) file generated"
-          echo "📂 dist/ directory contents:"
+          echo "ERROR: No source distribution (.tar.gz) file generated"
+          echo "dist/ directory contents:"
           ls -la dist/
           exit 1
         fi
         
-        echo "✅ All expected distributions generated"
+        echo "All expected distributions generated"
 
     - name: Check distribution packages
       run: |
-        echo "🔍 Checking distribution quality..."
+        echo "Checking distribution quality..."
         
         echo "Running twine check..."
         twine check dist/* --strict || {
-          echo "❌ Twine check failed"
+          echo "Twine check failed"
           echo ""
-          echo "📋 Distribution contents:"
+          echo "Distribution contents:"
           for file in dist/*; do
             echo "--- $file ---"
             if [[ $file == *.whl ]]; then
@@ -454,22 +454,22 @@ jobs:
           exit 1
         }
         
-        echo "✅ Twine check passed"
+        echo "Twine check passed"
         
         echo ""
         echo "Running wheel contents check..."
         check-wheel-contents dist/*.whl || {
-          echo "⚠️ Wheel contents check found issues (non-critical)"
+          echo "Wheel contents check found issues (non-critical)"
         }
 
     - name: Display package info
       run: |
-        echo "📦 Package information:"
+        echo "Package information:"
         echo ""
         
         for file in dist/*; do
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📄 $(basename $file)"
+          echo "$(basename $file)"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
           if [[ $file == *.whl ]]; then
@@ -490,7 +490,7 @@ jobs:
 
     - name: Test wheel installation in isolated environment
       run: |
-        echo "🧪 Testing wheel installation in isolated environment..."
+        echo "Testing wheel installation in isolated environment..."
         
         # Create a temporary virtual environment
         python -m venv test_env
@@ -499,27 +499,27 @@ jobs:
         echo "Installing wheel..."
         pip install --upgrade pip
         pip install dist/*.whl || {
-          echo "❌ Wheel installation failed"
+          echo "Wheel installation failed"
           deactivate
           exit 1
         }
         
         echo "Testing imports..."
-        python -c "import downloader; print('✓ downloader')" || {
-          echo "❌ Cannot import downloader"
+        python -c "import downloader; print('OK: downloader')" || {
+          echo "Cannot import downloader"
           deactivate
           exit 1
         }
         
-        python -c "from plugins import get_global_registry; print('✓ plugins')" || {
-          echo "❌ Cannot import plugins"
+        python -c "from plugins import get_global_registry; print('OK: plugins')" || {
+          echo "Cannot import plugins"
           deactivate
           exit 1
         }
         
         echo "Testing CLI..."
         ytdownloader --version || {
-          echo "❌ CLI command failed"
+          echo "CLI command failed"
           deactivate
           exit 1
         }
@@ -527,7 +527,7 @@ jobs:
         deactivate
         rm -rf test_env
         
-        echo "✅ Wheel installation test passed"
+        echo "Wheel installation test passed"
 
     - name: Upload distribution artifacts
       uses: actions/upload-artifact@v4
@@ -585,31 +585,35 @@ jobs:
     - name: Test GUI module import
       shell: bash
       run: |
-        echo "🎨 Testing GUI module import..."
-        python -c "import ytdownloader_gui; print('✓ GUI module loaded')" || echo "⚠️ GUI module import failed (tkinter may not be available)"
+        echo "Testing GUI module import..."
+        python -c "import ytdownloader_gui; print('OK: GUI module loaded')" || echo "GUI module import failed (tkinter may not be available)"
       continue-on-error: true
 
     - name: Test GUI help/version
       shell: bash
       run: |
-        echo "📝 Testing GUI help..."
-        python ytdownloader_gui.py --help || echo "⚠️ GUI help not available"
+        echo "Testing GUI help..."
+        python ytdownloader_gui.py --help || echo "GUI help not available"
       continue-on-error: true
 
     - name: Validate GUI file structure
       shell: bash
       run: |
-        echo "🔍 Validating GUI components..."
-        test -f ytdownloader_gui.py || (echo "❌ ytdownloader_gui.py not found" && exit 1)
-        grep -q "class App" ytdownloader_gui.py || (echo "❌ App class not found" && exit 1)
-        grep -q "def main" ytdownloader_gui.py || (echo "❌ main function not found" && exit 1)
-        echo "✅ GUI structure validated"
+        echo "Validating GUI components..."
+        test -f ytdownloader_gui.py || (echo "ytdownloader_gui.py not found" && exit 1)
+        grep -q "class App" ytdownloader_gui.py || (echo "App class not found" && exit 1)
+        grep -q "def main" ytdownloader_gui.py || (echo "main function not found" && exit 1)
+        echo "GUI structure validated"
 
   test-install:
     name: Test Package Installation
     runs-on: ${{ matrix.os }}
     needs: [build-package]
     timeout-minutes: 10
+    
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: 1
     
     strategy:
       fail-fast: false
@@ -634,10 +638,10 @@ jobs:
     - name: Display downloaded files
       shell: bash
       run: |
-        echo "📂 Downloaded distributions:"
+        echo "Downloaded distributions:"
         ls -lh dist/
         echo ""
-        echo "📊 File details:"
+        echo "File details:"
         for file in dist/*; do
           echo "  - $(basename $file): $(du -h $file | cut -f1)"
         done
@@ -646,40 +650,40 @@ jobs:
       shell: bash
       run: |
         if [ ! -d dist ] || [ -z "$(ls -A dist)" ]; then
-          echo "❌ ERROR: No distribution files found"
+          echo "ERROR: No distribution files found"
           echo "The dist/ directory is empty or does not exist"
           exit 1
         fi
         
         WHEEL_COUNT=$(ls -1 dist/*.whl 2>/dev/null | wc -l)
         if [ "$WHEEL_COUNT" -eq 0 ]; then
-          echo "❌ ERROR: No wheel file found"
+          echo "ERROR: No wheel file found"
           exit 1
         fi
         
-        echo "✅ Distribution files verified"
+        echo "Distribution files verified"
 
     - name: Install from wheel
       shell: bash
       run: |
-        echo "📦 Installing from wheel..."
+        echo "Installing from wheel..."
         pip install --upgrade pip setuptools wheel
         
         echo "Installing package..."
         pip install dist/*.whl --verbose || {
-          echo "❌ Installation failed"
+          echo "Installation failed"
           echo ""
-          echo "🔍 Diagnostic information:"
+          echo "Diagnostic information:"
           echo "Python: $(python --version)"
           echo "pip: $(pip --version)"
           echo ""
-          echo "📋 Available wheels:"
+          echo "Available wheels:"
           ls -la dist/*.whl
           exit 1
         }
         
         echo ""
-        echo "✅ Installation successful"
+        echo "Installation successful"
         echo ""
         echo "📋 Installed packages:"
         pip list | grep -i "ytdownloader\|yt-dlp\|rich" || pip list
@@ -687,119 +691,119 @@ jobs:
     - name: Verify package files installed
       shell: bash
       run: |
-        echo "🔍 Verifying installed files..."
+        echo "Verifying installed files..."
         
         # Check if module can be found
         python -c "import sys; import downloader; print(f'downloader location: {downloader.__file__}')" || {
-          echo "❌ downloader module not found in installation"
+          echo "downloader module not found in installation"
           echo ""
-          echo "📂 Python path:"
+          echo "Python path:"
           python -c "import sys; print('\n'.join(sys.path))"
           exit 1
         }
         
         python -c "import sys; import plugins; print(f'plugins location: {plugins.__file__}')" || {
-          echo "❌ plugins module not found in installation"
+          echo "plugins module not found in installation"
           exit 1
         }
         
-        echo "✅ Package files verified"
+        echo "Package files verified"
 
     - name: Test installed CLI commands
       shell: bash
       run: |
-        echo "🧪 Testing ytdownloader command..."
+        echo "Testing ytdownloader command..."
         ytdownloader --help || {
-          echo "❌ ytdownloader command failed"
+          echo "ytdownloader command failed"
           echo ""
-          echo "🔍 Checking if command exists:"
+          echo "Checking if command exists:"
           which ytdownloader || echo "Command not found in PATH"
           exit 1
         }
         
         ytdownloader --version || {
-          echo "❌ ytdownloader --version failed"
+          echo "ytdownloader --version failed"
           exit 1
         }
         
-        echo "✅ ytdownloader command working"
+        echo "ytdownloader command working"
         echo ""
         
-        echo "🧪 Testing ytdl alias..."
+        echo "Testing ytdl alias..."
         ytdl --help || {
-          echo "❌ ytdl command failed"
+          echo "ytdl command failed"
           which ytdl || echo "Command not found in PATH"
           exit 1
         }
         
         ytdl --version || {
-          echo "❌ ytdl --version failed"
+          echo "ytdl --version failed"
           exit 1
         }
         
-        echo "✅ ytdl alias working"
+        echo "ytdl alias working"
         echo ""
         
-        echo "🧪 Testing GUI command..."
+        echo "Testing GUI command..."
         ytdownloader-gui --help 2>&1 || {
           RESULT=$?
           if [ $RESULT -ne 0 ]; then
-            echo "⚠️ GUI command failed (may be expected without tkinter)"
+            echo "GUI command failed (may be expected without tkinter)"
             echo "GUI requires tkinter which may not be available in CI"
           fi
         }
         
         echo ""
-        echo "✅ All critical CLI commands working"
+        echo "All critical CLI commands working"
 
     - name: Test package imports
       shell: bash
       run: |
-        echo "🔍 Testing Python imports..."
+        echo "Testing Python imports..."
         
-        python -c "import downloader; print('✓ downloader module')" || {
-          echo "❌ Cannot import downloader"
+        python -c "import downloader; print('OK: downloader module')" || {
+          echo "Cannot import downloader"
           exit 1
         }
         
-        python -c "from plugins import get_global_registry; print('✓ plugins module')" || {
-          echo "❌ Cannot import plugins.get_global_registry"
+        python -c "from plugins import get_global_registry; print('OK: plugins module')" || {
+          echo "Cannot import plugins.get_global_registry"
           exit 1
         }
         
         python -c "import downloader; print(f'Version: {downloader.__version__}')" || {
-          echo "❌ Cannot access version information"
+          echo "Cannot access version information"
           exit 1
         }
         
         echo ""
-        echo "🧪 Testing plugin system..."
+        echo "Testing plugin system..."
         python -c "from plugins import get_global_registry; r=get_global_registry(); print(f'Loaded {len(r.list_plugins())} plugins')" || {
-          echo "❌ Plugin system not working"
+          echo "Plugin system not working"
           exit 1
         }
         
         echo ""
-        echo "✅ Package installation fully verified"
+        echo "Package installation fully verified"
 
     - name: Test functional CLI operations
       shell: bash
       run: |
-        echo "🧪 Testing CLI functionality..."
+        echo "Testing CLI functionality..."
         
         # Test config display
         ytdownloader --show-config || {
-          echo "❌ --show-config failed"
+          echo "--show-config failed"
           exit 1
         }
         
         # Test plugin listing
         ytdownloader --list-plugins || {
-          echo "❌ --list-plugins failed"
+          echo "--list-plugins failed"
           exit 1
         }
         
-        echo "✅ Functional tests passed"
+        echo "Functional tests passed"
       continue-on-error: false
 
     - name: Upload installation logs on failure
@@ -827,7 +831,7 @@ jobs:
         echo "           CI/CD Pipeline Status Report         "
         echo "================================================"
         echo ""
-        echo "📋 Job Results:"
+        echo "Job Results:"
         echo "  Lint:          ${{ needs.lint.result }}"
         echo "  Security:      ${{ needs.security.result }}"
         echo "  Build:         ${{ needs.build.result }}"
@@ -844,7 +848,7 @@ jobs:
            [ "${{ needs.test-gui.result }}" == "cancelled" ] || \
            [ "${{ needs.build-package.result }}" == "cancelled" ] || \
            [ "${{ needs.test-install.result }}" == "cancelled" ]; then
-          echo "⚠️  CANCELLED: One or more jobs were cancelled"
+          echo "CANCELLED: One or more jobs were cancelled"
           echo ""
           echo "The workflow was stopped before completion."
           exit 1
@@ -852,14 +856,14 @@ jobs:
         
         # Check required jobs
         if [ "${{ needs.build.result }}" != "success" ]; then
-          echo "❌ CRITICAL: Build job failed"
+          echo "CRITICAL: Build job failed"
           echo "    The main build and test suite did not pass."
           echo "    Check the Build job logs for details."
           echo ""
         fi
         
         if [ "${{ needs.build-package.result }}" != "success" ]; then
-          echo "❌ CRITICAL: Build Package job failed"
+          echo "CRITICAL: Build Package job failed"
           echo "    Unable to create distribution packages."
           echo "    Common causes:"
           echo "    • Missing or invalid pyproject.toml"
@@ -871,7 +875,7 @@ jobs:
         
         if [ "${{ needs.test-install.result }}" != "success" ] && \
            [ "${{ needs.test-install.result }}" != "skipped" ]; then
-          echo "❌ CRITICAL: Test Install job failed"
+          echo "CRITICAL: Test Install job failed"
           echo "    The package was built but cannot be installed or used."
           echo "    Common causes:"
           echo "    • Missing dependencies in package"
@@ -886,7 +890,7 @@ jobs:
            [ "${{ needs.build-package.result }}" != "success" ] || \
            ([ "${{ needs.test-install.result }}" != "success" ] && \
             [ "${{ needs.test-install.result }}" != "skipped" ]); then
-          echo "❌ FAILED: One or more required jobs failed"
+          echo "FAILED: One or more required jobs failed"
           echo ""
           echo "📖 Troubleshooting tips:"
           echo "  1. Check the failed job logs above"
@@ -900,21 +904,21 @@ jobs:
         
         # Warn on optional job failures
         if [ "${{ needs.lint.result }}" == "failure" ]; then
-          echo "⚠️  WARNING: Linting issues detected"
+          echo "WARNING: Linting issues detected"
           echo "    Run 'make format' to auto-fix style issues"
           echo "    Or run: black . && isort ."
           echo ""
         fi
         
         if [ "${{ needs.security.result }}" == "failure" ]; then
-          echo "⚠️  WARNING: Security scan detected potential issues"
+          echo "WARNING: Security scan detected potential issues"
           echo "    Review security reports for details"
           echo "    Run: bandit -r . && safety check"
           echo ""
         fi
         
         if [ "${{ needs.test-gui.result }}" == "failure" ]; then
-          echo "⚠️  WARNING: GUI tests had issues"
+          echo "WARNING: GUI tests had issues"
           echo "    This is often due to missing tkinter in CI"
           echo "    Test GUI locally if making GUI changes"
           echo ""
@@ -922,7 +926,7 @@ jobs:
         
         echo ""
         echo "================================================"
-        echo "✅ SUCCESS: All required jobs passed!"
+        echo "SUCCESS: All required jobs passed!"
         echo "================================================"
         echo ""
         echo "🎉 The CI/CD pipeline completed successfully!"
@@ -951,7 +955,7 @@ jobs:
            [ "${{ needs.build-package.result }}" != "success" ] || \
            ([ "${{ needs.test-install.result }}" != "success" ] && \
             [ "${{ needs.test-install.result }}" != "skipped" ]); then
-          echo "## ⚠️ Failed Jobs" >> $GITHUB_STEP_SUMMARY
+          echo "## Failed Jobs" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ needs.build.result }}" != "success" ]; then
