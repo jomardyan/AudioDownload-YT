@@ -3,6 +3,7 @@ SoundCloud converter plugin - download audio from SoundCloud tracks.
 """
 
 import re
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import yt_dlp
@@ -63,6 +64,7 @@ class SoundCloudConverter(BaseConverter):
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
+                entries = info.get("entries")
 
                 return {
                     "title": info.get("title", "Unknown"),
@@ -73,10 +75,9 @@ class SoundCloudConverter(BaseConverter):
                     "view_count": info.get("view_count", 0),
                     "like_count": info.get("like_count", 0),
                     "comment_count": info.get("comment_count", 0),
-                    "is_playlist": "entries" in info,
-                    "video_count": (
-                        len(info.get("entries", [])) if "entries" in info else 1
-                    ),
+                    "is_playlist": bool(entries),
+                    "video_count": len(entries) if entries else 1,
+                    "entries": entries,
                 }
         except Exception as e:
             raise RuntimeError(f"Failed to extract SoundCloud info: {e}")
@@ -91,9 +92,9 @@ class SoundCloudConverter(BaseConverter):
     ) -> Tuple[bool, Optional[str], Optional[str]]:
         """Download audio from SoundCloud"""
         try:
-            from pathlib import Path
-
             Path(output_path).mkdir(parents=True, exist_ok=True)
+            filename_template = kwargs.get("filename_template", "%(title)s.%(ext)s")
+            outtmpl = str(Path(output_path) / filename_template)
 
             bitrates = {
                 "low": "128",
@@ -112,10 +113,12 @@ class SoundCloudConverter(BaseConverter):
                     }
                 )
 
+            progress_hook = kwargs.get("progress_hook")
+
             ydl_opts = {
                 "format": "best",
                 "postprocessors": postprocessors,
-                "outtmpl": f"{output_path}/%(title)s.%(ext)s",
+                "outtmpl": outtmpl,
                 "quiet": kwargs.get("quiet", False),
                 "no_warnings": kwargs.get("quiet", False),
                 "noplaylist": not kwargs.get("is_playlist", False),
@@ -134,7 +137,10 @@ class SoundCloudConverter(BaseConverter):
                     if d["status"] == "finished":
                         downloaded_file = d.get("filename")
 
-            ydl_opts["progress_hooks"] = [ProgressHook()]
+            hooks = [ProgressHook()]
+            if progress_hook:
+                hooks.append(progress_hook)
+            ydl_opts["progress_hooks"] = hooks
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])

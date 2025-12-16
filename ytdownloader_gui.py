@@ -31,9 +31,11 @@ class App:
         self._worker: Optional[threading.Thread] = None
         self._cancel_event = threading.Event()
         self._queue: "queue.Queue[Dict[str, Any]]" = queue.Queue()
+        self._is_running = False
 
         self._build_menu()
         self._build_ui()
+        self._load_config_defaults()
         self._setup_shortcuts()
         self._poll_queue()
 
@@ -235,7 +237,7 @@ class App:
         self.root.rowconfigure(0, weight=1)
 
         outer.columnconfigure(0, weight=1)
-        outer.rowconfigure(4, weight=1)
+        outer.rowconfigure(6, weight=1)
 
         # URLs
         ttk.Label(outer, text="URLs (one per line)").grid(row=0, column=0, sticky="w")
@@ -332,6 +334,7 @@ class App:
         ttk.Checkbutton(
             options2, text="Use archive", variable=self.use_archive_var
         ).grid(row=0, column=8, sticky="w", padx=(14, 0))
+        self.use_archive_var.trace_add("write", self._update_archive_entry_state)
 
         ttk.Label(options2, text="Archive file").grid(
             row=0, column=9, sticky="w", padx=(14, 0)
@@ -349,13 +352,40 @@ class App:
         )
         self.template_entry.grid(row=0, column=12, sticky="w", padx=(8, 0))
 
+        advanced = ttk.LabelFrame(outer, text="Network & Advanced Options")
+        advanced.grid(row=4, column=0, sticky="ew", pady=(0, 10))
+        for i in range(5):
+            advanced.columnconfigure(i, weight=1 if i in (1, 4) else 0)
+
+        ttk.Label(advanced, text="Proxy").grid(row=0, column=0, sticky="w")
+        self.proxy_var = tk.StringVar()
+        self.proxy_entry = ttk.Entry(advanced, textvariable=self.proxy_var)
+        self.proxy_entry.grid(row=0, column=1, sticky="ew", padx=(8, 16))
+
+        ttk.Label(advanced, text="Rate limit (e.g. 1M)").grid(
+            row=0, column=2, sticky="w"
+        )
+        self.rate_limit_var = tk.StringVar()
+        self.rate_limit_entry = ttk.Entry(
+            advanced, textvariable=self.rate_limit_var, width=12
+        )
+        self.rate_limit_entry.grid(row=0, column=3, sticky="w", padx=(8, 16))
+
+        ttk.Label(advanced, text="Cookies file").grid(row=1, column=0, sticky="w")
+        self.cookies_var = tk.StringVar()
+        self.cookies_entry = ttk.Entry(advanced, textvariable=self.cookies_var)
+        self.cookies_entry.grid(row=1, column=1, sticky="ew", padx=(8, 8))
+        self.cookies_button = ttk.Button(
+            advanced, text="Browse…", command=self._choose_cookies_file
+        )
+        self.cookies_button.grid(row=1, column=2, sticky="w")
+
         # Log area
-        ttk.Label(outer, text="Log").grid(row=4, column=0, sticky="w")
+        ttk.Label(outer, text="Log").grid(row=5, column=0, sticky="w")
         log_frame = ttk.Frame(outer)
-        log_frame.grid(row=5, column=0, sticky="nsew", pady=(6, 10))
+        log_frame.grid(row=6, column=0, sticky="nsew", pady=(6, 10))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
-        outer.rowconfigure(5, weight=1)
 
         self.log_text = tk.Text(log_frame, height=12, wrap="word", state="disabled")
         self.log_text.grid(row=0, column=0, sticky="nsew")
@@ -368,7 +398,7 @@ class App:
 
         # Progress + controls
         bottom = ttk.Frame(outer)
-        bottom.grid(row=6, column=0, sticky="ew")
+        bottom.grid(row=7, column=0, sticky="ew")
         bottom.columnconfigure(0, weight=1)
 
         self.status_var = tk.StringVar(value="Idle")
@@ -382,18 +412,56 @@ class App:
         controls = ttk.Frame(bottom)
         controls.grid(row=0, column=1, rowspan=2, sticky="e", padx=(10, 0))
 
+        self.preview_btn = ttk.Button(controls, text="Preview", command=self._preview)
+        self.preview_btn.grid(row=0, column=0, padx=(0, 8))
+
+        self.plugins_btn = ttk.Button(
+            controls, text="Plugins", command=self._show_plugins
+        )
+        self.plugins_btn.grid(row=0, column=1, padx=(0, 8))
+
         self.start_btn = ttk.Button(controls, text="Start", command=self._start)
-        self.start_btn.grid(row=0, column=0, padx=(0, 8))
+        self.start_btn.grid(row=0, column=2, padx=(0, 8))
 
         self.cancel_btn = ttk.Button(
             controls, text="Cancel", command=self._cancel, state="disabled"
         )
-        self.cancel_btn.grid(row=0, column=1)
+        self.cancel_btn.grid(row=0, column=3)
+        self._update_archive_entry_state()
 
     def _choose_output(self) -> None:
         folder = filedialog.askdirectory(title="Choose output folder")
         if folder:
             self.output_var.set(folder)
+
+    def _choose_cookies_file(self) -> None:
+        """Prompt the user to select a cookies file."""
+        filename = filedialog.askopenfilename(
+            title="Choose cookies file",
+            filetypes=[("Text files", "*.txt *.cookies"), ("All files", "*.*")],
+        )
+        if filename:
+            self.cookies_var.set(filename)
+
+    def _load_config_defaults(self) -> None:
+        """Load CLI configuration defaults so GUI stays in sync."""
+        config = downloader.load_config()
+        self.quality_var.set(config.quality)
+        self.format_var.set(config.format)
+        if config.output:
+            self.output_var.set(config.output)
+        if config.template:
+            self.template_var.set(config.template)
+        self.metadata_var.set(config.embed_metadata)
+        self.thumbnail_var.set(config.embed_thumbnail)
+        self.retries_var.set(config.retries)
+        self.use_archive_var.set(config.use_archive)
+        if config.archive_file:
+            self.archive_var.set(config.archive_file)
+        self.proxy_var.set(config.proxy or "")
+        self.rate_limit_var.set(config.rate_limit or "")
+        self.cookies_var.set(config.cookies_file or "")
+        self._update_archive_entry_state()
 
     def _append_log(self, line: str) -> None:
         self.log_text.configure(state="normal")
@@ -403,18 +471,31 @@ class App:
 
     def _set_running(self, running: bool) -> None:
         """Enable or disable controls based on running state."""
+        self._is_running = running
         state_normal = "normal" if not running else "disabled"
         state_readonly = "readonly" if not running else "disabled"
 
         self.start_btn.configure(state="disabled" if running else "normal")
         self.cancel_btn.configure(state="normal" if running else "disabled")
+        self.preview_btn.configure(state="disabled" if running else "normal")
         self.urls_text.configure(state=state_normal)
         self.output_entry.configure(state=state_normal)
         self.quality_combo.configure(state=state_readonly)
         self.format_combo.configure(state=state_readonly)
         self.template_entry.configure(state=state_normal)
-        self.archive_entry.configure(state=state_normal)
+        self.proxy_entry.configure(state=state_normal)
+        self.rate_limit_entry.configure(state=state_normal)
+        self.cookies_entry.configure(state=state_normal)
+        self.cookies_button.configure(state=state_normal)
         self.retries_spin.configure(state=state_normal)
+        self._update_archive_entry_state()
+
+    def _update_archive_entry_state(self, *_args) -> None:
+        """Enable/disable archive entry based on checkbox and running state."""
+        state = (
+            "normal" if (not self._is_running and self.use_archive_var.get()) else "disabled"
+        )
+        self.archive_entry.configure(state=state)
 
     def _validate_inputs(self) -> Optional[List[str]]:
         urls_raw = self.urls_text.get("1.0", "end").strip()
@@ -449,6 +530,11 @@ class App:
             messagebox.showerror("Output folder error", dir_msg)
             return None
 
+        cookies_path = self.cookies_var.get().strip()
+        if cookies_path and not Path(cookies_path).exists():
+            messagebox.showerror("Cookies file not found", cookies_path)
+            return None
+
         # Validate URL formats
         invalid = []
         for url in urls:
@@ -461,6 +547,126 @@ class App:
 
         return urls
 
+    def _collect_options(self) -> Dict[str, Any]:
+        """Collect current form values for worker thread usage."""
+        template = self.template_var.get().strip() or "%(title)s.%(ext)s"
+        try:
+            retries = max(0, int(self.retries_var.get()))
+        except (tk.TclError, ValueError):
+            retries = 3
+        try:
+            concurrent = int(self.concurrent_var.get())
+        except (tk.TclError, ValueError):
+            concurrent = 1
+        concurrent = max(1, min(5, concurrent))
+
+        archive_file = None
+        if self.use_archive_var.get():
+            archive_file = self.archive_var.get().strip() or str(
+                downloader.DEFAULT_ARCHIVE_FILE
+            )
+
+        cookies_file = self.cookies_var.get().strip() or None
+        proxy = self.proxy_var.get().strip() or None
+        rate_limit = self.rate_limit_var.get().strip() or None
+
+        return {
+            "output_dir": self.output_var.get().strip(),
+            "quality": self.quality_var.get().strip(),
+            "audio_format": self.format_var.get().strip(),
+            "template": template,
+            "is_playlist": bool(self.playlist_var.get()),
+            "embed_metadata": bool(self.metadata_var.get()),
+            "embed_thumbnail": bool(self.thumbnail_var.get()),
+            "retries": retries,
+            "concurrent_downloads": concurrent,
+            "skip_existing": bool(self.skip_existing_var.get()),
+            "archive_file": archive_file,
+            "proxy": proxy,
+            "rate_limit": rate_limit,
+            "cookies_file": cookies_file,
+        }
+
+    def _preview(self) -> None:
+        """Show a dry-run preview for the first URL."""
+        if self._is_running:
+            return
+
+        urls = self._validate_inputs()
+        if not urls:
+            return
+
+        options = self._collect_options()
+        url = urls[0]
+        info = downloader.dry_run_info(
+            url=url,
+            output_dir=options["output_dir"],
+            filename_template=options["template"],
+            audio_format=options["audio_format"],
+            quality=options["quality"],
+            is_playlist=options["is_playlist"],
+        )
+        if not info:
+            messagebox.showerror("Preview failed", "Unable to extract information.")
+            self._append_log("Preview failed – unable to extract info.")
+            return
+
+        self._display_preview_info(url, info)
+
+    def _display_preview_info(self, url: str, info: Dict[str, Any]) -> None:
+        """Render preview data in a dialog."""
+        videos = info.get("videos", [])
+        total = info.get("video_count", len(videos))
+        preview_rows = []
+
+        header = []
+        if info.get("playlist_title"):
+            header.append(f"Playlist: {info['playlist_title']}")
+        header.append(f"Videos: {total}")
+        header.append(f"Format: {info.get('format')}")
+        header.append(f"Output: {info.get('output_dir')}")
+        preview_rows.extend(header)
+        preview_rows.append("")
+
+        for idx, video in enumerate(videos[:5], 1):
+            duration = video.get("duration")
+            if isinstance(duration, (int, float)):
+                minutes = int(duration) // 60
+                seconds = int(duration) % 60
+                duration_str = f"{minutes}:{seconds:02d}"
+            else:
+                duration_str = "N/A"
+            preview_rows.append(
+                f"{idx}. {video.get('title', 'Unknown')} ({duration_str})\n   → {video.get('resolved_path')}"
+            )
+
+        remaining = max(0, len(videos) - 5)
+        if remaining:
+            preview_rows.append(f"...and {remaining} more item(s)")
+
+        messagebox.showinfo("Dry Run Preview", "\n".join(preview_rows))
+        self._append_log(f"Preview ready for {url}")
+
+    def _show_plugins(self) -> None:
+        """Display supported plugin platforms."""
+        platforms = downloader.list_supported_platforms()
+        if not platforms:
+            messagebox.showinfo("Plugins", "No plugins available.")
+            return
+
+        lines = []
+        for plugin_id, data in sorted(platforms.items()):
+            playlist = "✓" if data.get("supports_playlist") else "✗"
+            lines.append(
+                f"{data.get('platform')} — Formats: {', '.join(data.get('output_formats', [])[:3])}"
+                f" — Playlist: {playlist}"
+            )
+
+        messagebox.showinfo(
+            "Supported Platforms", "\n".join(lines) + f"\n\nTotal: {len(platforms)}"
+        )
+        self._append_log("Displayed supported plugins.")
+
     def _start(self) -> None:
         if self._worker and self._worker.is_alive():
             return
@@ -469,6 +675,7 @@ class App:
         if urls is None:
             return
 
+        options = self._collect_options()
         self._cancel_event.clear()
         self.progress.configure(mode="determinate")
         self.progress["value"] = 0
@@ -478,7 +685,7 @@ class App:
 
         self._set_running(True)
         self._worker = threading.Thread(
-            target=self._run_worker, args=(urls,), daemon=True
+            target=self._run_worker, args=(urls, options), daemon=True
         )
         self._worker.start()
 
@@ -489,21 +696,22 @@ class App:
             self._append_log("Cancel requested…")
             self.cancel_btn.configure(state="disabled")
 
-    def _run_worker(self, urls: List[str]) -> None:
+    def _run_worker(self, urls: List[str], options: Dict[str, Any]) -> None:
         # Snapshot options for thread safety
-        output_dir = self.output_var.get().strip()
-        quality = self.quality_var.get().strip()
-        fmt = self.format_var.get().strip()
-        template = self.template_var.get().strip() or "%(title)s.%(ext)s"
-        is_playlist = bool(self.playlist_var.get())
-        embed_metadata = bool(self.metadata_var.get())
-        embed_thumbnail = bool(self.thumbnail_var.get())
-        retries = int(self.retries_var.get())
-        concurrent = int(self.concurrent_var.get())
-        skip_existing = bool(self.skip_existing_var.get())
-
-        use_archive = bool(self.use_archive_var.get())
-        archive_file = self.archive_var.get().strip() if use_archive else None
+        output_dir = options["output_dir"]
+        quality = options["quality"]
+        fmt = options["audio_format"]
+        template = options["template"]
+        is_playlist = options["is_playlist"]
+        embed_metadata = options["embed_metadata"]
+        embed_thumbnail = options["embed_thumbnail"]
+        retries = options["retries"]
+        concurrent = options["concurrent_downloads"]
+        skip_existing = options["skip_existing"]
+        archive_file = options["archive_file"]
+        proxy = options["proxy"]
+        rate_limit = options["rate_limit"]
+        cookies_file = options["cookies_file"]
 
         completed = 0
         total = len(urls)
@@ -545,6 +753,9 @@ class App:
                 is_playlist=is_playlist,
                 max_retries=retries,
                 archive_file=archive_file,
+                proxy=proxy,
+                rate_limit=rate_limit,
+                cookies_file=cookies_file,
                 progress_callback=progress_callback,
                 cancel_event=self._cancel_event,
                 concurrent_downloads=concurrent,

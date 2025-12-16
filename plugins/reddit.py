@@ -3,6 +3,7 @@ Reddit converter plugin - download videos and audio from Reddit.
 """
 
 import re
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import yt_dlp
@@ -87,9 +88,9 @@ class RedditConverter(BaseConverter):
     ) -> Tuple[bool, Optional[str], Optional[str]]:
         """Download and convert Reddit content"""
         try:
-            from pathlib import Path
-
             Path(output_path).mkdir(parents=True, exist_ok=True)
+            filename_template = kwargs.get("filename_template", "%(title)s.%(ext)s")
+            outtmpl = str(Path(output_path) / filename_template)
 
             bitrates = {
                 "low": "128",
@@ -108,10 +109,12 @@ class RedditConverter(BaseConverter):
                     }
                 )
 
+            progress_hook = kwargs.get("progress_hook")
+
             ydl_opts = {
                 "format": "best",
                 "postprocessors": postprocessors,
-                "outtmpl": f"{output_path}/%(title)s.%(ext)s",
+                "outtmpl": outtmpl,
                 "quiet": kwargs.get("quiet", False),
                 "no_warnings": kwargs.get("quiet", False),
             }
@@ -129,7 +132,10 @@ class RedditConverter(BaseConverter):
                     if d["status"] == "finished":
                         downloaded_file = d.get("filename")
 
-            ydl_opts["progress_hooks"] = [ProgressHook()]
+            hooks = [ProgressHook()]
+            if progress_hook:
+                hooks.append(progress_hook)
+            ydl_opts["progress_hooks"] = hooks
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])

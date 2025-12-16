@@ -1094,6 +1094,134 @@ def _download_single_from_playlist(
     )
 
 
+def _download_with_plugin(
+    plugin_id: str,
+    converter: BaseConverter,
+    url: str,
+    output_dir: str,
+    quality: str,
+    audio_format: str,
+    embed_metadata: bool,
+    embed_thumbnail: bool,
+    filename_template: str,
+    quiet: bool,
+    max_retries: int,
+    retry_delay: float,
+    archive_file: Optional[str],
+    proxy: Optional[str],
+    rate_limit: Optional[int],
+    cookies_file: Optional[str],
+    progress_callback: Optional[ProgressCallback],
+    cancel_event: Optional[CancelEvent],
+    video_title: Optional[str],
+    skip_existing: bool,
+) -> DownloadResult:
+    """Execute download via plugin with retry/error handling."""
+    start_time = time.time()
+    title = video_title or url
+
+    if skip_existing:
+        existing = check_file_exists(output_dir, title, audio_format, filename_template)
+        if existing:
+            return DownloadResult(
+                success=True,
+                url=url,
+                title=title,
+                output_path=existing,
+                error_code=ErrorCode.SUCCESS,
+                skipped=True,
+                attempts=0,
+                duration_seconds=time.time() - start_time,
+            )
+
+    last_error_code = ErrorCode.UNKNOWN_ERROR
+    last_error_message = ""
+    last_exception: Optional[Exception] = None
+
+    for attempt in range(1, max_retries + 1):
+        progress_tracker = DownloadProgress(
+            quiet=quiet,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+
+        plugin_kwargs = {
+            "embed_metadata": embed_metadata,
+            "embed_thumbnail": embed_thumbnail,
+            "filename_template": filename_template,
+            "quiet": True,
+            "proxy": proxy,
+            "rate_limit": rate_limit,
+            "cookies_file": cookies_file,
+            "archive_file": archive_file,
+            "progress_hook": progress_tracker.hook,
+            "is_playlist": False,
+        }
+
+        try:
+            success, file_path, error_message = converter.download(
+                url=url,
+                output_path=output_dir,
+                quality=quality,
+                format=audio_format,
+                **plugin_kwargs,
+            )
+            progress_tracker.cleanup()
+
+            if success:
+                return DownloadResult(
+                    success=True,
+                    url=url,
+                    title=title,
+                    output_path=file_path,
+                    error_code=ErrorCode.SUCCESS,
+                    attempts=attempt,
+                    duration_seconds=time.time() - start_time,
+                )
+
+            last_error_message = error_message or "Plugin download failed"
+            last_error_code = ErrorCode.UNKNOWN_ERROR
+            break
+        except DownloadCancelledError as e:
+            progress_tracker.cleanup()
+            return DownloadResult(
+                success=False,
+                url=url,
+                title=title,
+                error_code=ErrorCode.CANCELLED,
+                error_message="Cancelled by user",
+                exception=e,
+                attempts=attempt,
+                duration_seconds=time.time() - start_time,
+            )
+        except Exception as e:
+            progress_tracker.cleanup()
+            last_exception = e
+            last_error_code, last_error_message = classify_error(e)
+
+            if last_error_code == ErrorCode.NETWORK_ERROR and attempt < max_retries:
+                delay = retry_delay * (2 ** (attempt - 1))
+                if not quiet:
+                    console.print(
+                        f"[yellow]⚠[/yellow] {converter.capabilities.platform} plugin network error, "
+                        f"retrying in {delay:.1f}s..."
+                    )
+                time.sleep(delay)
+                continue
+            break
+
+    return DownloadResult(
+        success=False,
+        url=url,
+        title=title,
+        error_code=last_error_code,
+        error_message=last_error_message or "Plugin download failed",
+        exception=last_exception,
+        attempts=max_retries,
+        duration_seconds=time.time() - start_time,
+    )
+
+
 def _download_playlist(
     entries: List[Dict[str, Any]],
     output_dir: str,
@@ -1308,8 +1436,21 @@ def download_audio(
                 f"[dim]→ Cleaned URL (removed auto-generated playlist parameters)[/dim]"
             )
 
+    # Determine plugin for this URL if available
+    plugin_id: Optional[str] = None
+    plugin_converter: Optional[BaseConverter] = None
+    if PLUGINS_AVAILABLE:
+        try:
+            plugin_lookup = get_converter_for_url(url)
+        except Exception:
+            plugin_lookup = None
+        if plugin_lookup:
+            plugin_id, plugin_converter = plugin_lookup
+
     # Get quality bitrate
     bitrate = QUALITY_PRESETS.get(quality, "192")
+
+    rate_limit_value = _parse_rate_limit(rate_limit)
 
     # Create output directory
     try:
@@ -1389,8 +1530,8 @@ def download_audio(
     if proxy:
         ydl_opts["proxy"] = proxy
 
-    if rate_limit:
-        ydl_opts["ratelimit"] = _parse_rate_limit(rate_limit)
+    if rate_limit_value:
+        ydl_opts["ratelimit"] = rate_limit_value
 
     if cookies_file:
         if Path(cookies_file).exists():
@@ -1485,6 +1626,39 @@ def download_audio(
                         playlist_title=info.get("title", "Unknown"),
                         start_time=start_time,
                     )
+
+                # Use plugin-based downloader when available for single videos
+                if plugin_converter:
+                    plugin_result = _download_with_plugin(
+                        plugin_id=plugin_id or plugin_converter.capabilities.platform,
+                        converter=plugin_converter,
+                        url=url,
+                        output_dir=output_dir,
+                        quality=quality,
+                        audio_format=audio_format,
+                        embed_metadata=embed_metadata,
+                        embed_thumbnail=embed_thumbnail,
+                        filename_template=filename_template,
+                        quiet=quiet,
+                        max_retries=max_retries,
+                        retry_delay=retry_delay,
+                        archive_file=archive_file,
+                        proxy=proxy,
+                        rate_limit=rate_limit_value,
+                        cookies_file=cookies_file,
+                        progress_callback=progress_callback,
+                        cancel_event=cancel_event,
+                        video_title=video_title,
+                        skip_existing=skip_existing,
+                    )
+
+                    if plugin_result.success or (plugin_id and plugin_id != "youtube"):
+                        return plugin_result
+
+                    if not quiet:
+                        console.print(
+                            "[yellow]⚠[/yellow] Plugin download failed, falling back to built-in pipeline..."
+                        )
 
                 # Notify about post-processing stages
                 if progress_callback is not None:
