@@ -510,7 +510,7 @@ jobs:
         }
         
         echo "Testing CLI..."
-        audiodownload --version || {
+        tubetracks --version || {
           echo "CLI command failed"
           deactivate
           exit 1
