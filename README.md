@@ -1,8 +1,8 @@
-# AudioDownload-YT
+# TubeTracks
 
 <div align="center">
 
-![Build and Test](https://github.com/jomardyan/AudioDownload-YT/actions/workflows/build.yml/badge.svg)
+![Build and Test](https://github.com/jomardyan/TubeTracks/actions/workflows/build.yml/badge.svg)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -15,7 +15,7 @@
 
 ## Overview
 
-AudioDownload-YT is a Python-based media downloader supporting 9+ platforms including YouTube, TikTok, Instagram, SoundCloud, Spotify, and more. Features include multiple quality presets, format conversion, playlist support, and both CLI and GUI interfaces.
+TubeTracks is a Python-based media downloader supporting 9+ platforms including YouTube, TikTok, Instagram, SoundCloud, Spotify, and more. Features include multiple quality presets, format conversion, playlist support, and both CLI and GUI interfaces.
 
 ## Features
 
@@ -38,11 +38,17 @@ AudioDownload-YT is a Python-based media downloader supporting 9+ platforms incl
 
 ## Installation
 
-### Quick Install
+### Install from PyPI
 
 ```bash
-git clone https://github.com/jomardyan/AudioDownload-YT.git
-cd AudioDownload-YT
+pip install tubetracks
+```
+
+### Quick Install (Source)
+
+```bash
+git clone https://github.com/jomardyan/TubeTracks.git
+cd TubeTracks
 make install
 ```
 
@@ -50,8 +56,8 @@ make install
 
 1. **Clone repository**
    ```bash
-   git clone https://github.com/jomardyan/AudioDownload-YT.git
-   cd AudioDownload-YT
+   git clone https://github.com/jomardyan/TubeTracks.git
+   cd TubeTracks
    ```
 
 2. **Install dependencies**
@@ -102,7 +108,7 @@ python downloader.py -b urls.txt
 Launch the desktop interface:
 
 ```bash
-python ytdownloader_gui.py
+python tubetracks_gui.py
 ```
 
 Or with Make:
@@ -163,8 +169,8 @@ python downloader.py --save-config
 ```
 
 Configuration files are loaded from:
-1. `~/.ytdownloader.conf`
-2. `./.ytdownloader.conf`
+1. `~/.tubetracks.conf`
+2. `./.tubetracks.conf`
 
 ---
 

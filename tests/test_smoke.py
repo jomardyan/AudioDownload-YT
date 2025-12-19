@@ -1,5 +1,5 @@
 """
-Smoke tests for YouTube MP3 Downloader
+Smoke tests for TubeTracks
 Tests CLI argument parsing, config loading, and basic functionality
 """
 
@@ -319,7 +319,7 @@ class TestCLIArgumentParsing:
             cwd=Path(__file__).parent.parent,
         )
         assert result.returncode == 0
-        assert "1.0.0" in result.stdout or "1.0.0" in result.stderr
+        assert "1.5.0" in result.stdout or "1.5.0" in result.stderr
 
     def test_show_config(self):
         """Test that --show-config works"""

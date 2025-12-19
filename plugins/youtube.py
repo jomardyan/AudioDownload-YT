@@ -17,7 +17,7 @@ class YouTubeConverter(BaseConverter):
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
             name="YouTube Converter",
-            version="1.0.0",
+            version="1.5.0",
             platform="YouTube",
             description="Download audio and video from YouTube videos, playlists, and shorts",
             author="YouTube MP3 Downloader",

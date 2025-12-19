@@ -76,7 +76,7 @@ jobs:
         
         # Check core modules
         test -f downloader.py || (echo "❌ downloader.py missing" && exit 1)
-        test -f ytdownloader_gui.py || (echo "❌ ytdownloader_gui.py missing" && exit 1)
+        test -f tubetracks_gui.py || (echo "❌ tubetracks_gui.py missing" && exit 1)
         test -d plugins || (echo "❌ plugins/ directory missing" && exit 1)
         
         echo "✅ All required files present"
@@ -165,7 +165,7 @@ jobs:
     timeout-minutes: 10
     environment:
       name: ${{ inputs.environment }}
-      url: ${{ inputs.environment == 'pypi' && 'https://pypi.org/project/ytdownloader/' || 'https://test.pypi.org/project/ytdownloader/' }}
+      url: ${{ inputs.environment == 'pypi' && 'https://pypi.org/project/tubetracks/' || 'https://test.pypi.org/project/tubetracks/' }}
     
     steps:
     - name: Download distributions
@@ -207,10 +207,10 @@ jobs:
         echo ""
         echo "✅ Successfully published to Test PyPI!"
         echo ""
-        echo "🔗 View at: https://test.pypi.org/project/ytdownloader/"
+        echo "🔗 View at: https://test.pypi.org/project/tubetracks/"
         echo ""
         echo "Test installation with:"
-        echo "  pip install -i https://test.pypi.org/simple/ ytdownloader"
+        echo "  pip install -i https://test.pypi.org/simple/ tubetracks"
 
     - name: Publish to Production PyPI
       if: inputs.environment == 'pypi'
@@ -242,10 +242,10 @@ jobs:
         echo ""
         echo "🎉 Successfully published to PyPI!"
         echo ""
-        echo "🔗 View at: https://pypi.org/project/ytdownloader/"
+        echo "🔗 View at: https://pypi.org/project/tubetracks/"
         echo ""
         echo "Install with:"
-        echo "  pip install ytdownloader"
+        echo "  pip install tubetracks"
 
   verify:
     name: Verify Publication
@@ -268,12 +268,12 @@ jobs:
         pip install --upgrade pip
         
         # Try to install from TestPyPI
-        pip install -i https://test.pypi.org/simple/ ytdownloader --dry-run || {
+        pip install -i https://test.pypi.org/simple/ tubetracks --dry-run || {
           echo "⚠️  Package not yet available on Test PyPI"
           echo "   This is normal - indexing can take a few minutes"
           echo ""
           echo "Manual verification:"
-          echo "  Visit: https://test.pypi.org/project/ytdownloader/"
+          echo "  Visit: https://test.pypi.org/project/tubetracks/"
         }
 
     - name: Verify package is available (PyPI)
@@ -284,12 +284,12 @@ jobs:
         pip install --upgrade pip
         
         # Try to fetch package info from PyPI
-        pip index versions ytdownloader || {
+        pip index versions tubetracks || {
           echo "⚠️  Package not yet fully indexed on PyPI"
           echo "   This is normal - indexing can take a few minutes"
           echo ""
           echo "Manual verification:"
-          echo "  Visit: https://pypi.org/project/ytdownloader/"
+          echo "  Visit: https://pypi.org/project/tubetracks/"
         }
 
     - name: Summary
@@ -300,13 +300,13 @@ jobs:
         if [ "${{ inputs.environment }}" == "pypi" ]; then
           echo "✅ **Successfully published to PyPI**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **View**: [https://pypi.org/project/ytdownloader/](https://pypi.org/project/ytdownloader/)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Install**: \`pip install ytdownloader\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **View**: [https://pypi.org/project/tubetracks/](https://pypi.org/project/tubetracks/)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Install**: \`pip install tubetracks\`" >> $GITHUB_STEP_SUMMARY
         else
           echo "✅ **Successfully published to Test PyPI**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **View**: [https://test.pypi.org/project/ytdownloader/](https://test.pypi.org/project/ytdownloader/)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Install**: \`pip install -i https://test.pypi.org/simple/ ytdownloader\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **View**: [https://test.pypi.org/project/tubetracks/](https://test.pypi.org/project/tubetracks/)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Install**: \`pip install -i https://test.pypi.org/simple/ tubetracks\`" >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -321,7 +321,7 @@ jobs:
           echo "3. When ready, publish to production PyPI" >> $GITHUB_STEP_SUMMARY
         else
           echo "1. Verify the package on PyPI" >> $GITHUB_STEP_SUMMARY
-          echo "2. Test installation: \`pip install ytdownloader\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Test installation: \`pip install audiodownload-yt\`" >> $GITHUB_STEP_SUMMARY
           echo "3. Update documentation if needed" >> $GITHUB_STEP_SUMMARY
           echo "4. Announce the release!" >> $GITHUB_STEP_SUMMARY
         fi

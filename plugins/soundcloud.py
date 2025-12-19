@@ -17,7 +17,7 @@ class SoundCloudConverter(BaseConverter):
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
             name="SoundCloud Converter",
-            version="1.0.0",
+            version="1.5.0",
             platform="SoundCloud",
             description="Download audio tracks from SoundCloud",
             author="YouTube MP3 Downloader",

@@ -289,7 +289,7 @@ jobs:
       shell: bash
       run: |
         echo "Testing GUI module..."
-        python -c "import ytdownloader_gui; print('OK: GUI module imports successfully')"
+        python -c "import tubetracks_gui; print('OK: GUI module imports successfully')"
         echo "GUI module test passed"
       continue-on-error: true  # tkinter may not be available in all CI environments
 
@@ -358,14 +358,14 @@ jobs:
         # Check required files exist
         echo "Checking required files..."
         test -f downloader.py || (echo "downloader.py missing" && exit 1)
-        test -f ytdownloader_gui.py || (echo "ytdownloader_gui.py missing" && exit 1)
+        test -f tubetracks_gui.py || (echo "tubetracks_gui.py missing" && exit 1)
         test -d plugins || (echo "plugins/ directory missing" && exit 1)
         test -f plugins/__init__.py || (echo "plugins/__init__.py missing" && exit 1)
         
         # Verify Python syntax is valid (without importing dependencies)
         echo "Verifying Python syntax..."
         python -m py_compile downloader.py || (echo "downloader.py has syntax errors" && exit 1)
-        python -m py_compile ytdownloader_gui.py || (echo "ytdownloader_gui.py has syntax errors" && exit 1)
+        python -m py_compile tubetracks_gui.py || (echo "tubetracks_gui.py has syntax errors" && exit 1)
         python -m compileall plugins/ -q || (echo "plugins/ has syntax errors" && exit 1)
         
         echo "Pre-build validation passed"
@@ -510,7 +510,7 @@ jobs:
         }
         
         echo "Testing CLI..."
-        ytdownloader --version || {
+        audiodownload --version || {
           echo "CLI command failed"
           deactivate
           exit 1
@@ -578,23 +578,23 @@ jobs:
       shell: bash
       run: |
         echo "Testing GUI module import..."
-        python -c "import ytdownloader_gui; print('OK: GUI module loaded')" || echo "GUI module import failed (tkinter may not be available)"
+        python -c "import tubetracks_gui; print('OK: GUI module loaded')" || echo "GUI module import failed (tkinter may not be available)"
       continue-on-error: true
 
     - name: Test GUI help/version
       shell: bash
       run: |
         echo "Testing GUI help..."
-        python ytdownloader_gui.py --help || echo "GUI help not available"
+        python tubetracks_gui.py --help || echo "GUI help not available"
       continue-on-error: true
 
     - name: Validate GUI file structure
       shell: bash
       run: |
         echo "Validating GUI components..."
-        test -f ytdownloader_gui.py || (echo "ytdownloader_gui.py not found" && exit 1)
-        grep -q "class App" ytdownloader_gui.py || (echo "App class not found" && exit 1)
-        grep -q "def main" ytdownloader_gui.py || (echo "main function not found" && exit 1)
+        test -f tubetracks_gui.py || (echo "tubetracks_gui.py not found" && exit 1)
+        grep -q "class App" tubetracks_gui.py || (echo "App class not found" && exit 1)
+        grep -q "def main" tubetracks_gui.py || (echo "main function not found" && exit 1)
         echo "GUI structure validated"
 
   test-install:
@@ -678,7 +678,7 @@ jobs:
         echo "Installation successful"
         echo ""
         echo "📋 Installed packages:"
-        pip list | grep -i "ytdownloader\|yt-dlp\|rich" || pip list
+        pip list | grep -i "tubetracks\|yt-dlp\|rich" || pip list
 
     - name: Verify package files installed
       shell: bash
@@ -704,21 +704,21 @@ jobs:
     - name: Test installed CLI commands
       shell: bash
       run: |
-        echo "Testing ytdownloader command..."
-        ytdownloader --help || {
-          echo "ytdownloader command failed"
+        echo "Testing tubetracks command..."
+        tubetracks --help || {
+          echo "tubetracks command failed"
           echo ""
           echo "Checking if command exists:"
-          which ytdownloader || echo "Command not found in PATH"
+          which tubetracks || echo "Command not found in PATH"
           exit 1
         }
         
-        ytdownloader --version || {
-          echo "ytdownloader --version failed"
+        tubetracks --version || {
+          echo "tubetracks --version failed"
           exit 1
         }
         
-        echo "ytdownloader command working"
+        echo "tubetracks command working"
         echo ""
         
         echo "Testing ytdl alias..."
@@ -737,7 +737,7 @@ jobs:
         echo ""
         
         echo "Testing GUI command..."
-        ytdownloader-gui --help 2>&1 || {
+        tubetracks-gui --help 2>&1 || {
           RESULT=$?
           if [ $RESULT -ne 0 ]; then
             echo "GUI command failed (may be expected without tkinter)"
@@ -784,13 +784,13 @@ jobs:
         echo "Testing CLI functionality..."
         
         # Test config display
-        ytdownloader --show-config || {
+        tubetracks --show-config || {
           echo "--show-config failed"
           exit 1
         }
         
         # Test plugin listing
-        ytdownloader --list-plugins || {
+        tubetracks --list-plugins || {
           echo "--list-plugins failed"
           exit 1
         }

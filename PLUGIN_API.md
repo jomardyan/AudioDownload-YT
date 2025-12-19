@@ -2,7 +2,7 @@
 
 ## Overview
 
-The ytdownloader plugin system provides a clean, extensible architecture for adding support for new content platforms. The system is built around the concept of **converters** - pluggable modules that handle downloading and converting content from specific platforms.
+  The audiodownload-yt plugin system provides a clean, extensible architecture for adding support for new content platforms. The system is built around the concept of **converters** - pluggable modules that handle downloading and converting content from specific platforms.
 
 ## Architecture
 
@@ -103,7 +103,7 @@ class NewPlatformConverter(BaseConverter):
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
             name="NewPlatform Converter",
-            version="1.0.0",
+            version="1.5.0",
             platform="NewPlatform",
             description="Download content from NewPlatform",
             author="Your Name",

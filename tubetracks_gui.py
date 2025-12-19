@@ -1,10 +1,10 @@
-"""Tkinter GUI frontend for AudioDownload-YT.
+"""Tkinter GUI frontend for TubeTracks.
 
 This file intentionally keeps the CLI in downloader.py untouched.
 It uses downloader.py as a backend and adds a simple desktop UI.
 
 Run:
-  python ytdownloader_gui.py
+  python tubetracks_gui.py
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import downloader
 class App:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title(f"YouTube MP3 Downloader (GUI) v{downloader.__version__}")
+        self.root.title(f"TubeTracks (GUI) v{downloader.__version__}")
         self.root.minsize(860, 620)
 
         self._worker: Optional[threading.Thread] = None
@@ -214,7 +214,7 @@ class App:
         """Show about dialog."""
         messagebox.showinfo(
             "About",
-            f"YouTube MP3 Downloader (GUI)\n"
+            f"TubeTracks (GUI)\n"
             f"Version {downloader.__version__}\n\n"
             f"A multi-platform audio downloader with plugin support.\n"
             f"Supports YouTube, Spotify, SoundCloud, and more.",
@@ -934,13 +934,13 @@ class App:
 def main() -> None:
     # Parse arguments before initializing GUI (for --help, --version in headless environments)
     parser = argparse.ArgumentParser(
-        description="YouTube MP3 Downloader - Tkinter GUI",
+        description="TubeTracks - Tkinter GUI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--version",
         action="version",
-        version=f"ytdownloader-gui {downloader.__version__}",
+        version=f"tubetracks-gui {downloader.__version__}",
     )
 
     # Check for help/version before tkinter initialization (fixes CI/headless issues)

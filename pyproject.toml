@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ytdownloader"
-version = "1.0.1"
-description = "Enhanced YouTube to MP3 Downloader with multi-platform support, config, archive, and network options"
+name = "tubetracks"
+version = "1.5.0"
+description = "TubeTracks: Enhanced YouTube to MP3 Downloader with multi-platform support"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
-    {name = "YouTube MP3 Downloader", email = "hayk.jomardyan@outlook.com"}
+    {name = "TubeTracks", email = "hayk.jomardyan@outlook.com"}
 ]
 maintainers = [
     {name = "jomardyan"}
@@ -26,7 +26,8 @@ keywords = [
     "spotify",
     "twitch",
     "media-downloader",
-    "audio-converter"
+    "audio-converter",
+    "tubetracks"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -70,19 +71,19 @@ dev = [
 ]
 
 [project.scripts]
-ytdownloader = "downloader:main"
+tubetracks = "downloader:main"
 ytdl = "downloader:main"
-ytdownloader-gui = "ytdownloader_gui:main"
+tubetracks-gui = "tubetracks_gui:main"
 
 [project.urls]
-Homepage = "https://github.com/jomardyan/AudioDownload-YT"
-Repository = "https://github.com/jomardyan/AudioDownload-YT.git"
-"Bug Tracker" = "https://github.com/jomardyan/AudioDownload-YT/issues"
-Documentation = "https://github.com/jomardyan/AudioDownload-YT/blob/main/README.md"
-Changelog = "https://github.com/jomardyan/AudioDownload-YT/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/jomardyan/TubeTracks"
+Repository = "https://github.com/jomardyan/TubeTracks.git"
+"Bug Tracker" = "https://github.com/jomardyan/TubeTracks/issues"
+Documentation = "https://github.com/jomardyan/TubeTracks/blob/main/README.md"
+Changelog = "https://github.com/jomardyan/TubeTracks/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
-py-modules = ["downloader", "ytdownloader_gui"]
+py-modules = ["downloader", "tubetracks_gui"]
 packages = ["plugins"]
 package-dir = {"" = "."}
 

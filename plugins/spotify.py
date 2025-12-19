@@ -19,7 +19,7 @@ class SpotifyConverter(BaseConverter):
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
             name="Spotify Converter",
-            version="1.0.0",
+            version="1.5.0",
             platform="Spotify",
             description="Extract metadata from Spotify tracks and create playlists for download",
             author="YouTube MP3 Downloader",

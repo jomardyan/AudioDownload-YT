@@ -160,7 +160,7 @@ import re
 class MyPlatformConverter(BaseConverter):
     def get_capabilities(self):
         return PluginCapabilities(
-            name="MyPlatform", version="1.0.0", platform="MyPlatform",
+            name="MyPlatform", version="1.5.0", platform="MyPlatform",
             description="Download from MyPlatform",
             supported_content_types=[ContentType.AUDIO],
             url_patterns=[r"myplatform\.com"],

@@ -555,7 +555,7 @@ class TestPluginCapabilities:
         """Test default values in PluginCapabilities"""
         caps = PluginCapabilities(
             name="Test Plugin",
-            version="1.0.0",
+            version="1.5.0",
             platform="TestPlatform",
             description="Test description",
             author="Test Author",

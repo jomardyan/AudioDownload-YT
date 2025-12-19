@@ -17,7 +17,7 @@ class InstagramConverter(BaseConverter):
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
             name="Instagram Converter",
-            version="1.0.0",
+            version="1.5.0",
             platform="Instagram",
             description="Download videos and audio from Instagram posts and reels",
             author="YouTube MP3 Downloader",

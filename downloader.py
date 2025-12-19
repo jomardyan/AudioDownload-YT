@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced YouTube to MP3 Downloader
+TubeTracks: Enhanced YouTube to MP3 Downloader
 Download audio from YouTube videos, playlists, and batch files with quality options
 Features: Rich error handling, retries, validation, config file, archive, and detailed reporting
 Plugin system for multi-platform support (YouTube, TikTok, Instagram, Spotify, SoundCloud, etc.)
@@ -51,7 +51,7 @@ except ImportError:
 console = Console()
 
 # Version
-__version__ = "1.0.0"
+__version__ = "1.5.0"
 
 
 def _configure_stdio_for_unicode() -> None:
@@ -151,13 +151,13 @@ def list_supported_platforms() -> Dict[str, Dict[str, Any]]:
 
 # Default config file locations
 CONFIG_LOCATIONS = [
-    Path.home() / ".ytdownloader.conf",
-    Path.home() / ".config" / "ytdownloader" / "config.conf",
-    Path(".ytdownloader.conf"),
+    Path.home() / ".tubetracks.conf",
+    Path.home() / ".config" / "tubetracks" / "config.conf",
+    Path(".tubetracks.conf"),
 ]
 
 # Default archive file location
-DEFAULT_ARCHIVE_FILE = Path.home() / ".ytdownloader_archive.txt"
+DEFAULT_ARCHIVE_FILE = Path.home() / ".tubetracks_archive.txt"
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -2329,7 +2329,7 @@ Exit Codes:
             "\n[bold cyan]═══════════════════════════════════════════[/bold cyan]"
         )
         console.print(
-            f"[bold cyan]   YouTube MP3 Downloader v{__version__}   [/bold cyan]"
+            f"[bold cyan]       TubeTracks Downloader v{__version__}     [/bold cyan]"
         )
         console.print(
             "[bold cyan]═══════════════════════════════════════════[/bold cyan]\n"

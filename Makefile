@@ -10,7 +10,7 @@ NC := \033[0m # No Color
 # Default target
 help:
 	@echo "$(BLUE)╔════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BLUE)║       YouTube MP3 Downloader - Make Commands               ║$(NC)"
+	@echo "$(BLUE)║       TubeTracks - Make Commands                           ║$(NC)"
 	@echo "$(BLUE)╚════════════════════════════════════════════════════════════╝$(NC)"
 	@echo ""
 	@echo "$(GREEN)Installation & Setup:$(NC)"
@@ -78,6 +78,7 @@ validate:
 	@test -f pyproject.toml || (echo "$(RED)✗ Missing pyproject.toml$(NC)" && exit 1)
 	@test -f requirements.txt || (echo "$(RED)✗ Missing requirements.txt$(NC)" && exit 1)
 	@test -f downloader.py || (echo "$(RED)✗ Missing downloader.py$(NC)" && exit 1)
+	@test -f tubetracks_gui.py || (echo "$(RED)✗ Missing tubetracks_gui.py$(NC)" && exit 1)
 	@test -d tests || (echo "$(RED)✗ Missing tests directory$(NC)" && exit 1)
 	@echo "$(GREEN)✓ Project structure is valid$(NC)"
 	@echo "$(BLUE)→ Checking dependencies...$(NC)"
@@ -103,9 +104,9 @@ coverage:
 # Format code
 format:
 	@echo "$(BLUE)→ Formatting code with black...$(NC)"
-	black downloader.py tests/
+	black downloader.py tubetracks_gui.py tests/
 	@echo "$(BLUE)→ Sorting imports with isort...$(NC)"
-	isort downloader.py tests/
+	isort downloader.py tubetracks_gui.py tests/
 	@echo "$(GREEN)✓ Code formatting complete$(NC)"
 
 # Lint code
@@ -163,7 +164,7 @@ publish: build
 	@echo "$(YELLOW)$(NC)"
 	python -m twine upload dist/* --skip-existing
 	@echo "$(GREEN)✓ Published to PyPI!$(NC)"
-	@echo "$(GREEN)View at: https://pypi.org/project/ytdownloader/$(NC)"
+	@echo "$(GREEN)View at: https://pypi.org/project/tubetracks/$(NC)"
 
 # Run the downloader
 run:
@@ -212,12 +213,12 @@ pipx-install:
 	@echo "$(BLUE)→ Installing globally via pipx...$(NC)"
 	pipx install .
 	@echo "$(GREEN)✓ Global installation complete$(NC)"
-	@echo "$(YELLOW)You can now run: ytdownloader <url>$(NC)"
+	@echo "$(YELLOW)You can now run: tubetracks <url>$(NC)"
 
 # Uninstall via pipx
 pipx-uninstall:
 	@echo "$(YELLOW)⚠ Removing global installation...$(NC)"
-	pipx uninstall ytdownloader
+	pipx uninstall tubetracks
 	@echo "$(GREEN)✓ Global installation removed$(NC)"
 
 # Watch mode for development (auto-run tests on file changes)
@@ -258,14 +259,14 @@ plugin-docs:
 # Launch GUI application
 gui:
 	@echo "$(BLUE)→ Launching Desktop GUI...$(NC)"
-	@test -f ytdownloader_gui.py || (echo "$(RED)✗ ytdownloader_gui.py not found$(NC)" && exit 1)
+	@test -f tubetracks_gui.py || (echo "$(RED)✗ tubetracks_gui.py not found$(NC)" && exit 1)
 	@echo "$(GREEN)Starting GUI application...$(NC)"
-	python ytdownloader_gui.py
+	python tubetracks_gui.py
 
 # Test GUI imports and dependencies
 gui-test:
 	@echo "$(BLUE)→ Testing GUI dependencies...$(NC)"
 	@python -c "import tkinter; print('✓ tkinter available')" || (echo "$(RED)✗ tkinter not installed$(NC)" && exit 1)
-	@python -c "import ytdownloader_gui; print('✓ GUI module loads successfully')" || (echo "$(RED)✗ GUI module failed to load$(NC)" && exit 1)
+	@python -c "import tubetracks_gui; print('✓ GUI module loads successfully')" || (echo "$(RED)✗ GUI module failed to load$(NC)" && exit 1)
 	@echo "$(GREEN)✓ GUI dependencies satisfied$(NC)"
 
