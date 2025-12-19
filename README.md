@@ -453,6 +453,16 @@ TubeTracks is built with and inspired by excellent open-source projects:
 
 ---
 
+## 👨‍💻 Author
+
+**Hayk Jomardyan**
+
+- 🌐 Website: [lolino.pl](https://lolino.pl)
+- 📧 Email: [hayk.jomardyan@outlook.com](mailto:hayk.jomardyan@outlook.com)
+- 💼 GitHub: [@jomardyan](https://github.com/jomardyan)
+
+---
+
 <div align="center">
 
 **[⬆ Back to Top](#-tubetracks)**
