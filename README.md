@@ -89,19 +89,37 @@ python downloader.py --help  # Test downloader
 
 ### CLI Usage
 
+**Note:** If you installed via PyPI, use the `tubetracks` command instead of `python downloader.py`.
+
 ```bash
-# Single download
+# Single download (PyPI)
+tubetracks "https://www.youtube.com/watch?v=VIDEO_ID"
+
+# Single download (Source)
 python downloader.py "https://www.youtube.com/watch?v=VIDEO_ID"
 
 # With quality and format
-python downloader.py -q high -f flac "URL"
+tubetracks -q high -f flac "URL"
 
 # Playlist
-python downloader.py -p "PLAYLIST_URL"
+tubetracks -p "PLAYLIST_URL"
 
 # Batch from file
-python downloader.py -b urls.txt
+tubetracks -b urls.txt
 ```
+
+### Python Library Usage
+
+TubeTracks can be used as a Python library to integrate media downloading capabilities directly into your own applications.
+
+```python
+from downloader import download_audio
+
+# Simple download
+result = download_audio("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+```
+
+See [LIBRARY_USAGE.md](LIBRARY_USAGE.md) for complete API documentation and examples.
 
 ### GUI
 
