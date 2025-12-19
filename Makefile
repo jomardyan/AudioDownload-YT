@@ -154,8 +154,16 @@ build: clean validate
 # Publish to PyPI (requires twine and PyPI credentials)
 publish: build
 	@echo "$(YELLOW)⚠ Publishing to PyPI...$(NC)"
-	@echo "$(YELLOW)Make sure you have set up PyPI credentials in ~/.pypirc$(NC)"
+	@echo "$(YELLOW)Ensure you have:$(NC)"
+	@echo "$(YELLOW)  1. Created PyPI account at https://pypi.org/account/register/$(NC)"
+	@echo "$(YELLOW)  2. Generated API token at https://pypi.org/account/api-tokens/$(NC)"
+	@echo "$(YELLOW)  3. Configured ~/.pypirc with your token (chmod 600 ~/.pypirc)$(NC)"
+	@echo "$(YELLOW)$(NC)"
+	@echo "$(YELLOW)See PyPI_PUBLISHING.md for detailed instructions.$(NC)"
+	@echo "$(YELLOW)$(NC)"
 	python -m twine upload dist/* --skip-existing
+	@echo "$(GREEN)✓ Published to PyPI!$(NC)"
+	@echo "$(GREEN)View at: https://pypi.org/project/ytdownloader/$(NC)"
 
 # Run the downloader
 run:

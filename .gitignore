@@ -26,6 +26,11 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+*.whl
+
+# Build tools
+.pyproject.toml~
+.setuptools_scm/
 
 # PyInstaller
 *.manifest
@@ -48,6 +53,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+coverage/
 
 # Translations
 *.mo
@@ -139,3 +145,11 @@ downloads/
 *.flac
 *.m4a
 *.ogg
+actionlint
+
+# PyPI test/upload
+.pypirc
+~/.pypirc
+
+# twine
+.twine/
