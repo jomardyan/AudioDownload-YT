@@ -5,7 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] - 2025-12-19
+## [1.5.1] - 2025-12-19
+
+### Fixed
+- Fixed PyPI metadata validation errors for package publication
+- Replaced invalid `license` and `license-files` fields with standard License classifier
+- Corrected invalid `Environment :: X11 :: Tk` classifier to valid `Topic :: Desktop Environment`
+- Ensured full compatibility with PyPI's legacy upload server metadata requirements
+
+### Changed
+- Simplified GitHub Actions workflow for PyPI publishing
+- Modernized workflow to use `actions/checkout@v4` and `actions/setup-python@v5`
+- Updated metadata parsing to use Python 3.11+ `tomllib`
+- Streamlined build and publish process with current best practices
+
+### Added
+- PyPI version badge to README
+- PyPI downloads badge to README
+- Converted all relative links in README to absolute GitHub URLs for better PyPI page display
+
+## [1.5.0] - 2025-12-10
 
 ### Added
 - Initial stable release
@@ -44,4 +63,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Pre-release
 - Development version with core functionality
 
+[1.5.1]: https://github.com/jomardyan/TubeTracks/releases/tag/v1.5.1
 [1.5.0]: https://github.com/jomardyan/TubeTracks/releases/tag/v1.5.0
