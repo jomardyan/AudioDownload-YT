@@ -1925,7 +1925,9 @@ def download_from_batch_file(
 
                     if fail_fast:
                         if not quiet:
-                            console.print("[yellow]Stopping due to --fail-fast flag[/yellow]")
+                            console.print(
+                                "[yellow]Stopping due to --fail-fast flag[/yellow]"
+                            )
                         break
 
                     if max_failures > 0 and failure_count >= max_failures:
@@ -1936,7 +1938,9 @@ def download_from_batch_file(
                         break
             except KeyboardInterrupt:
                 if not quiet:
-                    console.print("\n[yellow]⚠ Batch download interrupted by user[/yellow]")
+                    console.print(
+                        "\n[yellow]⚠ Batch download interrupted by user[/yellow]"
+                    )
                 break
             except Exception as e:
                 failure_count += 1
@@ -1945,16 +1949,20 @@ def download_from_batch_file(
                     url=url,
                     error_code=ErrorCode.UNKNOWN_ERROR,
                     error_message=f"Unexpected error: {e}",
-                    exception=e
+                    exception=e,
                 )
                 results.append(error_result)
                 if not quiet:
-                    console.print(f"[red]✗[/red] Unexpected error processing {url}: {e}")
+                    console.print(
+                        f"[red]✗[/red] Unexpected error processing {url}: {e}"
+                    )
                 if fail_fast:
                     break
     except Exception as e:
         if not quiet:
-            console.print(f"[bold red]Critical error in batch processing:[/bold red] {e}")
+            console.print(
+                f"[bold red]Critical error in batch processing:[/bold red] {e}"
+            )
 
     # Generate summary
     if not quiet:
