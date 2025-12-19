@@ -493,7 +493,9 @@ class App:
     def _update_archive_entry_state(self, *_args) -> None:
         """Enable/disable archive entry based on checkbox and running state."""
         state = (
-            "normal" if (not self._is_running and self.use_archive_var.get()) else "disabled"
+            "normal"
+            if (not self._is_running and self.use_archive_var.get())
+            else "disabled"
         )
         self.archive_entry.configure(state=state)
 
