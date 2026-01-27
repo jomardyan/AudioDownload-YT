@@ -30,8 +30,10 @@ class App:
 
         self._worker: Optional[threading.Thread] = None
         self._cancel_event = threading.Event()
+        self._preview_cancel_event = threading.Event()
         self._queue: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._is_running = False
+        self._is_previewing = False
 
         self._build_menu()
         self._build_ui()
@@ -487,18 +489,23 @@ class App:
         self.preview_btn = ttk.Button(controls, text="Preview", command=self._preview)
         self.preview_btn.grid(row=0, column=0, padx=(0, 8))
 
+        self.stop_preview_btn = ttk.Button(
+            controls, text="Stop Preview", command=self._stop_preview, state="disabled"
+        )
+        self.stop_preview_btn.grid(row=0, column=1, padx=(0, 8))
+
         self.plugins_btn = ttk.Button(
             controls, text="Plugins", command=self._show_plugins
         )
-        self.plugins_btn.grid(row=0, column=1, padx=(0, 8))
+        self.plugins_btn.grid(row=0, column=2, padx=(0, 8))
 
         self.start_btn = ttk.Button(controls, text="Start", command=self._start)
-        self.start_btn.grid(row=0, column=2, padx=(0, 8))
+        self.start_btn.grid(row=0, column=3, padx=(0, 8))
 
         self.cancel_btn = ttk.Button(
             controls, text="Cancel", command=self._cancel, state="disabled"
         )
-        self.cancel_btn.grid(row=0, column=3)
+        self.cancel_btn.grid(row=0, column=4)
         self._update_archive_entry_state()
 
     def _choose_output(self) -> None:
@@ -770,16 +777,21 @@ class App:
 
     def _preview(self) -> None:
         """Show a dry-run preview for the first URL (runs in background thread)."""
-        if self._is_running:
+        if self._is_running or self._is_previewing:
             return
 
         urls = self._validate_inputs()
         if not urls:
             return
 
-        # Disable preview button during operation
+        # Set preview state
+        self._is_previewing = True
+        self._preview_cancel_event.clear()
+
+        # Disable preview/start buttons, enable stop button
         self.preview_btn.configure(state="disabled")
         self.start_btn.configure(state="disabled")
+        self.stop_preview_btn.configure(state="normal")
         
         # Set up progress indication
         self.progress.configure(mode="indeterminate")
@@ -802,6 +814,11 @@ class App:
         try:
             self._queue.put({"type": "log", "text": f"🔍 Fetching preview for: {url}"})
             self._queue.put({"type": "status", "text": "🔍 Connecting to platform..."})
+            
+            # Check if cancelled before starting
+            if self._preview_cancel_event.is_set():
+                self._queue.put({"type": "log", "text": "⊘ Preview cancelled by user"})
+                return
             
             # Extract info with progress updates
             info = self._fetch_preview_with_progress(
@@ -873,6 +890,10 @@ class App:
     ) -> Optional[Dict[str, Any]]:
         """Fetch preview info with progress updates."""
         try:
+            # Check if cancelled
+            if self._preview_cancel_event.is_set():
+                return None
+                
             self._queue.put({"type": "log", "text": "  → Extracting metadata..."})
             self._queue.put({"type": "status", "text": "🔍 Extracting metadata..."})
             
@@ -885,6 +906,10 @@ class App:
                 is_playlist=is_playlist,
             )
             
+            # Check if cancelled after extraction
+            if self._preview_cancel_event.is_set():
+                return None
+            
             if info:
                 video_count = info.get("video_count", 0)
                 is_playlist_result = info.get("is_playlist", False)
@@ -896,6 +921,10 @@ class App:
                     # Log each video as we process it
                     videos = info.get("videos", [])
                     for idx, video in enumerate(videos[:10], 1):
+                        # Check if cancelled during video processing
+                        if self._preview_cancel_event.is_set():
+                            self._queue.put({"type": "log", "text": "  ⊘ Preview cancelled"})
+                            return None
                         title = video.get("title", "Unknown")
                         self._queue.put({"type": "log", "text": f"    [{idx}] {title}"})
                         
@@ -1020,6 +1049,14 @@ class App:
             self.status_var.set("Cancelling…")
             self._append_log("Cancel requested…")
             self.cancel_btn.configure(state="disabled")
+
+    def _stop_preview(self) -> None:
+        """Stop the running preview operation."""
+        if self._is_previewing:
+            self._preview_cancel_event.set()
+            self.status_var.set("Stopping preview…")
+            self._append_log("⊘ Preview stop requested…")
+            self.stop_preview_btn.configure(state="disabled")
 
     def _run_worker(self, urls: List[str], options: Dict[str, Any]) -> None:
         """Worker thread for processing downloads with comprehensive error handling."""
@@ -1207,6 +1244,26 @@ class App:
                     f"A critical error occurred:\n\n{error_msg}\n\n"
                     "Check the log for more details."
                 )
+            
+            elif mtype == "preview_ready":
+                # Preview data is ready - display it
+                self._display_preview_info(msg.get("url", ""), msg.get("info", {}))
+            
+            elif mtype == "preview_error":
+                # Preview operation failed - show error
+                messagebox.showerror(msg.get("title", "Error"), msg.get("message", "Unknown error"))
+            
+            elif mtype == "preview_complete":
+                # Preview operation finished - restore UI
+                self._is_previewing = False
+                self.progress.stop()
+                self.progress.configure(mode="determinate")
+                self.progress["value"] = 0
+                self.status_var.set("Idle")
+                self.preview_btn.configure(state="normal")
+                self.start_btn.configure(state="normal")
+                self.stop_preview_btn.configure(state="disabled")
+                
         except Exception as e:
             # Failsafe: if message handling itself fails
             self._append_log(f"✗ Error handling queue message: {type(e).__name__}: {e}")

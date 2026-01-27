@@ -179,14 +179,36 @@ class MyPlatformConverter(BaseConverter):
 
 ### Documentation Policy
 
-**DO NOT create new markdown files** unless explicitly requested. The project already has comprehensive documentation:
+**⚠️ CRITICAL: DO NOT CREATE NEW MARKDOWN FILES UNLESS EXPLICITLY REQUESTED BY USER**
+
+The project already has comprehensive documentation. **Never** automatically create files like:
+- ❌ Summary files (e.g., `IMPLEMENTATION_SUMMARY.md`, `CHANGES_SUMMARY.md`)
+- ❌ Implementation details (e.g., `ASYNC_PREVIEW_IMPLEMENTATION.md`, `FEATURE_IMPLEMENTATION.md`)
+- ❌ Task completion reports (e.g., `TASK_COMPLETION.md`, `WORK_SUMMARY.md`)
+- ❌ Change logs (e.g., `CHANGES.md`, `UPDATES.md`) - use existing `CHANGELOG.md`
+- ❌ Technical documentation (unless user explicitly asks for it)
+- ❌ Architecture documents (unless user explicitly asks for it)
+
+**Existing Documentation Files** (do not duplicate):
 - [README.md](../README.md): User guide and feature overview
 - [PLUGIN_API.md](../PLUGIN_API.md): Plugin development reference
 - [GITHUB_ACTIONS_SETUP.md](../GITHUB_ACTIONS_SETUP.md): CI/CD configuration
 - [PyPI_PUBLISHING.md](../PyPI_PUBLISHING.md), [PYPI_GUIDE.md](../PYPI_GUIDE.md): Publishing guides
 - [CHANGELOG.md](../CHANGELOG.md): Version history
 
-When making code changes, update existing documentation inline via docstrings and comments. Do not generate summary files, change logs, or task completion reports.
+**When Making Code Changes:**
+1. Update existing documentation inline via docstrings and comments
+2. Update existing `.md` files if the change affects documented behavior
+3. Provide a brief explanation in the response message
+4. **DO NOT** create new markdown files to document the changes
+5. **DO NOT** create summary files after completing tasks
+
+**User Must Explicitly Request Documentation:**
+- User says: "create documentation for X" → OK to create
+- User says: "document this feature" → OK to create
+- User says: "add X feature" → **NO** markdown file, just implement
+- User says: "fix this bug" → **NO** summary file, just fix
+- You finish a task → **NO** completion report, just confirm done
 
 ## Common Development Tasks
 

@@ -94,6 +94,7 @@ class ErrorCode(Enum):
     PLUGIN_ERROR = 9
     CONFIGURATION_ERROR = 10
     TIMEOUT_ERROR = 11
+    CANCELLED = 12
     UNKNOWN_ERROR = 99
 
 
