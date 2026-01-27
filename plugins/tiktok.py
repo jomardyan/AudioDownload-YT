@@ -17,7 +17,7 @@ class TikTokConverter(BaseConverter):
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
             name="TikTok Converter",
-            version="1.5.0",
+            version="1.5.2",
             platform="TikTok",
             description="Download videos and extract audio from TikTok",
             author="YouTube MP3 Downloader",

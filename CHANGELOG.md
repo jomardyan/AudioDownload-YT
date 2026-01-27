@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-01-27
+
+### Added
+- Richer playlist progress feedback in the GUI log and status bar.
+- Retry/backoff and error classification improvements with clearer skip handling.
+
+### Fixed
+- Cancel/stop responsiveness for downloads and preview operations.
+- YouTube 403 handling with fallback client headers and clearer error messages.
+
 ## [1.5.1] - 2025-12-19
 
 ### Fixed
@@ -63,5 +73,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Pre-release
 - Development version with core functionality
 
+[1.5.2]: https://github.com/jomardyan/TubeTracks/releases/tag/v1.5.2
 [1.5.1]: https://github.com/jomardyan/TubeTracks/releases/tag/v1.5.1
 [1.5.0]: https://github.com/jomardyan/TubeTracks/releases/tag/v1.5.0

@@ -22,6 +22,69 @@ from typing import Any, Dict, List, Optional
 import downloader
 
 
+# ==============================================================================
+# TOOLTIP HELPER - Shows helpful hints when hovering over elements
+# ==============================================================================
+
+
+class ToolTip:
+    """Simple tooltip that appears when hovering over a widget."""
+
+    def __init__(self, widget: tk.Widget, text: str, delay: int = 500):
+        self.widget = widget
+        self.text = text
+        self.delay = delay
+        self.tipwindow: Optional[tk.Toplevel] = None
+        self._id: Optional[str] = None
+        widget.bind("<Enter>", self._schedule)
+        widget.bind("<Leave>", self._hide)
+        widget.bind("<ButtonPress>", self._hide)
+
+    def _schedule(self, event=None) -> None:
+        self._unschedule()
+        self._id = self.widget.after(self.delay, self._show)
+
+    def _unschedule(self) -> None:
+        if self._id:
+            self.widget.after_cancel(self._id)
+            self._id = None
+
+    def _show(self, event=None) -> None:
+        if self.tipwindow:
+            return
+        x = self.widget.winfo_rootx() + 20
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+        self.tipwindow = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        # Style the tooltip
+        frame = tk.Frame(tw, background="#ffffe0", borderwidth=1, relief="solid")
+        frame.pack()
+        label = tk.Label(
+            frame,
+            text=self.text,
+            justify="left",
+            background="#ffffe0",
+            foreground="#333333",
+            font=("Segoe UI", 9),
+            padx=8,
+            pady=4,
+            wraplength=300,
+        )
+        label.pack()
+
+    def _hide(self, event=None) -> None:
+        self._unschedule()
+        if self.tipwindow:
+            self.tipwindow.destroy()
+            self.tipwindow = None
+
+
+def add_tooltip(widget: tk.Widget, text: str) -> ToolTip:
+    """Convenience function to add a tooltip to any widget."""
+    return ToolTip(widget, text)
+
+
 class App:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -317,10 +380,18 @@ class App:
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(6, weight=1)
 
-        # URLs
-        ttk.Label(outer, text="URLs (one per line)").grid(row=0, column=0, sticky="w")
+        # URLs - with user-friendly header
+        url_header = ttk.Frame(outer)
+        url_header.grid(row=0, column=0, sticky="ew")
+        ttk.Label(url_header, text="Paste video or playlist links here:", font=("Segoe UI", 10, "bold")).pack(side="left")
+        ttk.Label(url_header, text="(one link per line)", foreground="gray").pack(side="left", padx=(8, 0))
+        
         self.urls_text = tk.Text(outer, height=7, wrap="word")
         self.urls_text.grid(row=1, column=0, sticky="nsew", pady=(6, 10))
+        self.urls_text.insert("1.0", "")
+        # Placeholder behavior
+        self._urls_placeholder = "Example: https://www.youtube.com/watch?v=..."
+        self._setup_placeholder(self.urls_text, self._urls_placeholder)
         self._create_context_menu(self.urls_text)
 
         # Options row
@@ -331,39 +402,64 @@ class App:
         options.columnconfigure(1, weight=1)
         options.columnconfigure(6, weight=1)
 
-        ttk.Label(options, text="Output folder").grid(row=0, column=0, sticky="w")
+        ttk.Label(options, text="Save to folder:").grid(row=0, column=0, sticky="w")
         self.output_var = tk.StringVar(value=str(Path.cwd() / "downloads"))
         self.output_entry = ttk.Entry(options, textvariable=self.output_var)
         self.output_entry.grid(row=0, column=1, sticky="ew", padx=(8, 8))
-        ttk.Button(options, text="Browse…", command=self._choose_output).grid(
-            row=0, column=2, sticky="w"
-        )
+        add_tooltip(self.output_entry, "Where your downloaded files will be saved")
+        browse_btn = ttk.Button(options, text="Browse...", command=self._choose_output)
+        browse_btn.grid(row=0, column=2, sticky="w")
+        add_tooltip(browse_btn, "Click to choose a folder on your computer")
 
-        ttk.Label(options, text="Quality").grid(
+        ttk.Label(options, text="Audio quality:").grid(
             row=0, column=3, sticky="w", padx=(14, 0)
         )
         self.quality_var = tk.StringVar(value="medium")
+        # User-friendly quality descriptions
+        self._quality_display = {
+            "Low (smaller files)": "low",
+            "Medium (recommended)": "medium",
+            "High (best quality)": "high",
+            "Original (lossless)": "best",
+        }
+        self._quality_reverse = {v: k for k, v in self._quality_display.items()}
         self.quality_combo = ttk.Combobox(
             options,
-            textvariable=self.quality_var,
-            values=["low", "medium", "high", "best"],
-            width=10,
+            values=list(self._quality_display.keys()),
+            width=18,
             state="readonly",
         )
+        self.quality_combo.set("Medium (recommended)")
+        self.quality_combo.bind("<<ComboboxSelected>>", self._on_quality_change)
         self.quality_combo.grid(row=0, column=4, sticky="w", padx=(8, 8))
+        add_tooltip(self.quality_combo, "Higher quality = larger file size. Medium is good for most people.")
 
-        ttk.Label(options, text="Format").grid(row=0, column=5, sticky="w")
+        ttk.Label(options, text="File type:").grid(row=0, column=5, sticky="w")
         self.format_var = tk.StringVar(value="mp3")
+        # User-friendly format descriptions
+        self._format_descriptions = {
+            "mp3": "MP3 (works everywhere)",
+            "m4a": "M4A (Apple/iTunes)",
+            "flac": "FLAC (lossless, large)",
+            "wav": "WAV (uncompressed)",
+            "ogg": "OGG (open format)",
+            "opus": "Opus (efficient)",
+            "vorbis": "Vorbis (open)",
+            "mp4": "MP4 (video)",
+        }
+        format_display = [self._format_descriptions.get(f, f) for f in downloader.SUPPORTED_FORMATS]
         self.format_combo = ttk.Combobox(
             options,
-            textvariable=self.format_var,
-            values=list(downloader.SUPPORTED_FORMATS),
-            width=10,
+            values=format_display,
+            width=18,
             state="readonly",
         )
+        self.format_combo.set("MP3 (works everywhere)")
+        self.format_combo.bind("<<ComboboxSelected>>", self._on_format_change)
         self.format_combo.grid(row=0, column=6, sticky="w", padx=(8, 0))
+        add_tooltip(self.format_combo, "MP3 is recommended - it works on all devices and music players.")
 
-        # Secondary options
+        # Secondary options - with user-friendly labels
         options2 = ttk.Frame(outer)
         options2.grid(row=3, column=0, sticky="ew", pady=(10, 10))
         for i in range(14):
@@ -371,95 +467,128 @@ class App:
         options2.columnconfigure(11, weight=1)
 
         self.playlist_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            options2, text="Treat as playlist", variable=self.playlist_var
-        ).grid(row=0, column=0, sticky="w")
+        playlist_cb = ttk.Checkbutton(
+            options2, text="Download entire playlist", variable=self.playlist_var
+        )
+        playlist_cb.grid(row=0, column=0, sticky="w")
+        add_tooltip(playlist_cb, "Check this if you want to download all videos in a playlist or channel")
 
         self.metadata_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            options2, text="Embed metadata", variable=self.metadata_var
-        ).grid(row=0, column=1, sticky="w", padx=(14, 0))
+        metadata_cb = ttk.Checkbutton(
+            options2, text="Add song info", variable=self.metadata_var
+        )
+        metadata_cb.grid(row=0, column=1, sticky="w", padx=(14, 0))
+        add_tooltip(metadata_cb, "Adds artist name, song title, and album to the file (recommended)")
 
         self.thumbnail_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            options2, text="Embed thumbnail", variable=self.thumbnail_var
-        ).grid(row=0, column=2, sticky="w", padx=(14, 0))
+        thumbnail_cb = ttk.Checkbutton(
+            options2, text="Add cover art", variable=self.thumbnail_var
+        )
+        thumbnail_cb.grid(row=0, column=2, sticky="w", padx=(14, 0))
+        add_tooltip(thumbnail_cb, "Adds the album/video artwork to the audio file (recommended)")
 
         self.skip_existing_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            options2, text="Skip existing", variable=self.skip_existing_var
-        ).grid(row=0, column=3, sticky="w", padx=(14, 0))
-
-        ttk.Label(options2, text="Concurrent").grid(
-            row=0, column=4, sticky="w", padx=(14, 0)
+        skip_cb = ttk.Checkbutton(
+            options2, text="Skip duplicates", variable=self.skip_existing_var
         )
+        skip_cb.grid(row=0, column=3, sticky="w", padx=(14, 0))
+        add_tooltip(skip_cb, "Don't download files that already exist in the folder")
+
+        concurrent_lbl = ttk.Label(options2, text="Downloads at once:")
+        concurrent_lbl.grid(row=0, column=4, sticky="w", padx=(14, 0))
         self.concurrent_var = tk.IntVar(value=3)
         self.concurrent_spin = ttk.Spinbox(
             options2, from_=1, to=5, textvariable=self.concurrent_var, width=5
         )
         self.concurrent_spin.grid(row=0, column=5, sticky="w", padx=(8, 0))
+        add_tooltip(self.concurrent_spin, "How many files to download at the same time. 3 is usually best.")
 
-        ttk.Label(options2, text="Retries").grid(
-            row=0, column=6, sticky="w", padx=(14, 0)
-        )
+        retries_lbl = ttk.Label(options2, text="Retry failed:")
+        retries_lbl.grid(row=0, column=6, sticky="w", padx=(14, 0))
         self.retries_var = tk.IntVar(value=3)
         self.retries_spin = ttk.Spinbox(
             options2, from_=0, to=20, textvariable=self.retries_var, width=5
         )
         self.retries_spin.grid(row=0, column=7, sticky="w", padx=(8, 0))
+        add_tooltip(self.retries_spin, "How many times to retry if a download fails")
 
         self.use_archive_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            options2, text="Use archive", variable=self.use_archive_var
-        ).grid(row=0, column=8, sticky="w", padx=(14, 0))
+        archive_cb = ttk.Checkbutton(
+            options2, text="Remember downloads", variable=self.use_archive_var
+        )
+        archive_cb.grid(row=0, column=8, sticky="w", padx=(14, 0))
+        add_tooltip(archive_cb, "Keeps a list of downloads so you don't accidentally download the same file twice")
         self.use_archive_var.trace_add("write", self._update_archive_entry_state)
 
-        ttk.Label(options2, text="Archive file").grid(
-            row=0, column=9, sticky="w", padx=(14, 0)
+        # Advanced options row (hidden by default for simplicity)
+        ttk.Label(options2, text="").grid(row=0, column=9, sticky="w", padx=(14, 0))  # spacer
+        
+        # Create show/hide advanced link
+        self._advanced_visible = tk.BooleanVar(value=False)
+        self.advanced_toggle = ttk.Button(
+            options2, text="Show Advanced Options ▼", 
+            command=self._toggle_advanced_options,
+            width=22
         )
+        self.advanced_toggle.grid(row=0, column=10, sticky="e", padx=(8, 0))
+        add_tooltip(self.advanced_toggle, "Show extra options for power users (proxy, filename template, etc.)")
+
+        # Advanced options frame (starts hidden)
+        self.advanced_frame = ttk.LabelFrame(outer, text="Advanced Options (for experts)")
+        self.advanced_frame.grid(row=4, column=0, sticky="ew", pady=(0, 10))
+        self.advanced_frame.grid_remove()  # Hide by default
+        
+        for i in range(7):
+            self.advanced_frame.columnconfigure(i, weight=1 if i in (1, 4, 6) else 0)
+
+        # Row 0: Archive file and Template
+        ttk.Label(self.advanced_frame, text="History file:").grid(row=0, column=0, sticky="w", padx=4, pady=4)
         self.archive_var = tk.StringVar(value=str(downloader.DEFAULT_ARCHIVE_FILE))
         self.archive_entry = ttk.Entry(
-            options2, textvariable=self.archive_var, width=22
+            self.advanced_frame, textvariable=self.archive_var, width=30
         )
-        self.archive_entry.grid(row=0, column=10, sticky="w", padx=(8, 8))
+        self.archive_entry.grid(row=0, column=1, sticky="ew", padx=(8, 16), pady=4)
+        add_tooltip(self.archive_entry, "File that remembers which videos you've already downloaded")
 
-        ttk.Label(options2, text="Template").grid(row=0, column=11, sticky="w")
+        ttk.Label(self.advanced_frame, text="Filename pattern:").grid(row=0, column=2, sticky="w", padx=4, pady=4)
         self.template_var = tk.StringVar(value="%(title)s.%(ext)s")
         self.template_entry = ttk.Entry(
-            options2, textvariable=self.template_var, width=20
+            self.advanced_frame, textvariable=self.template_var, width=25
         )
-        self.template_entry.grid(row=0, column=12, sticky="w", padx=(8, 0))
+        self.template_entry.grid(row=0, column=3, sticky="ew", padx=(8, 0), pady=4)
+        add_tooltip(self.template_entry, "How to name the files. %(title)s = video title, %(ext)s = file extension")
 
-        advanced = ttk.LabelFrame(outer, text="Network & Advanced Options")
-        advanced.grid(row=4, column=0, sticky="ew", pady=(0, 10))
-        for i in range(5):
-            advanced.columnconfigure(i, weight=1 if i in (1, 4) else 0)
-
-        ttk.Label(advanced, text="Proxy").grid(row=0, column=0, sticky="w")
+        # Row 1: Proxy and Rate limit
+        ttk.Label(self.advanced_frame, text="Proxy URL:").grid(row=1, column=0, sticky="w", padx=4, pady=4)
         self.proxy_var = tk.StringVar()
-        self.proxy_entry = ttk.Entry(advanced, textvariable=self.proxy_var)
-        self.proxy_entry.grid(row=0, column=1, sticky="ew", padx=(8, 16))
+        self.proxy_entry = ttk.Entry(self.advanced_frame, textvariable=self.proxy_var)
+        self.proxy_entry.grid(row=1, column=1, sticky="ew", padx=(8, 16), pady=4)
+        add_tooltip(self.proxy_entry, "Optional: Use a proxy server (e.g., socks5://127.0.0.1:1080)")
 
-        ttk.Label(advanced, text="Rate limit (e.g. 1M)").grid(
-            row=0, column=2, sticky="w"
-        )
+        ttk.Label(self.advanced_frame, text="Speed limit:").grid(row=1, column=2, sticky="w", padx=4, pady=4)
         self.rate_limit_var = tk.StringVar()
         self.rate_limit_entry = ttk.Entry(
-            advanced, textvariable=self.rate_limit_var, width=12
+            self.advanced_frame, textvariable=self.rate_limit_var, width=12
         )
-        self.rate_limit_entry.grid(row=0, column=3, sticky="w", padx=(8, 16))
+        self.rate_limit_entry.grid(row=1, column=3, sticky="w", padx=(8, 0), pady=4)
+        add_tooltip(self.rate_limit_entry, "Optional: Limit download speed (e.g., 1M = 1 megabyte/sec)")
 
-        ttk.Label(advanced, text="Cookies file").grid(row=1, column=0, sticky="w")
+        # Row 2: Cookies file
+        ttk.Label(self.advanced_frame, text="Cookies file:").grid(row=2, column=0, sticky="w", padx=4, pady=4)
         self.cookies_var = tk.StringVar()
-        self.cookies_entry = ttk.Entry(advanced, textvariable=self.cookies_var)
-        self.cookies_entry.grid(row=1, column=1, sticky="ew", padx=(8, 8))
+        self.cookies_entry = ttk.Entry(self.advanced_frame, textvariable=self.cookies_var)
+        self.cookies_entry.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(8, 8), pady=4)
+        add_tooltip(self.cookies_entry, "Optional: Browser cookies file for private/age-restricted videos")
         self.cookies_button = ttk.Button(
-            advanced, text="Browse…", command=self._choose_cookies_file
+            self.advanced_frame, text="Browse...", command=self._choose_cookies_file, width=10
         )
-        self.cookies_button.grid(row=1, column=2, sticky="w")
+        self.cookies_button.grid(row=2, column=3, sticky="w", padx=4, pady=4)
 
-        # Log area
-        ttk.Label(outer, text="Log").grid(row=5, column=0, sticky="w")
+        # Log area with friendly label
+        log_header = ttk.Frame(outer)
+        log_header.grid(row=5, column=0, sticky="ew")
+        ttk.Label(log_header, text="Activity Log", font=("Segoe UI", 9, "bold")).pack(side="left")
+        ttk.Label(log_header, text="(shows what's happening)", foreground="gray").pack(side="left", padx=(8, 0))
         log_frame = ttk.Frame(outer)
         log_frame.grid(row=6, column=0, sticky="nsew", pady=(6, 10))
         log_frame.columnconfigure(0, weight=1)
@@ -490,26 +619,31 @@ class App:
         controls = ttk.Frame(bottom)
         controls.grid(row=0, column=1, rowspan=2, sticky="e", padx=(10, 0))
 
-        self.preview_btn = ttk.Button(controls, text="Preview", command=self._preview)
+        self.preview_btn = ttk.Button(controls, text="Check URL", command=self._preview, width=12)
         self.preview_btn.grid(row=0, column=0, padx=(0, 8))
+        add_tooltip(self.preview_btn, "Check the link and see what will be downloaded before starting")
 
         self.stop_preview_btn = ttk.Button(
-            controls, text="Stop Preview", command=self._stop_preview, state="disabled"
+            controls, text="Stop Check", command=self._stop_preview, state="disabled", width=10
         )
         self.stop_preview_btn.grid(row=0, column=1, padx=(0, 8))
+        add_tooltip(self.stop_preview_btn, "Stop checking the URL")
 
         self.plugins_btn = ttk.Button(
-            controls, text="Plugins", command=self._show_plugins
+            controls, text="Supported Sites", command=self._show_plugins, width=14
         )
         self.plugins_btn.grid(row=0, column=2, padx=(0, 8))
+        add_tooltip(self.plugins_btn, "See which websites are supported (YouTube, Spotify, TikTok, etc.)")
 
-        self.start_btn = ttk.Button(controls, text="Start", command=self._start)
+        self.start_btn = ttk.Button(controls, text="▶ Download", command=self._start, width=12)
         self.start_btn.grid(row=0, column=3, padx=(0, 8))
+        add_tooltip(self.start_btn, "Start downloading the audio files")
 
         self.cancel_btn = ttk.Button(
-            controls, text="Cancel", command=self._cancel, state="disabled"
+            controls, text="Stop", command=self._cancel, state="disabled", width=8
         )
         self.cancel_btn.grid(row=0, column=4)
+        add_tooltip(self.cancel_btn, "Stop the current download")
         self._update_archive_entry_state()
 
     def _choose_output(self) -> None:
@@ -633,7 +767,70 @@ class App:
         self.proxy_var.set(config.proxy or "")
         self.rate_limit_var.set(config.rate_limit or "")
         self.cookies_var.set(config.cookies_file or "")
+        
+        # Update combo boxes to match loaded values
+        if config.quality in self._quality_reverse:
+            self.quality_combo.set(self._quality_reverse[config.quality])
+        if config.format in self._format_descriptions:
+            self.format_combo.set(self._format_descriptions[config.format])
+        
         self._update_archive_entry_state()
+
+    # =========================================================================
+    # HELPER METHODS FOR USER-FRIENDLY UI
+    # =========================================================================
+
+    def _setup_placeholder(self, widget: tk.Text, placeholder: str) -> None:
+        """Setup placeholder text behavior for Text widget."""
+        def on_focus_in(event):
+            if widget.get("1.0", "end-1c") == placeholder:
+                widget.delete("1.0", "end")
+                widget.config(foreground="black")
+        
+        def on_focus_out(event):
+            if not widget.get("1.0", "end-1c").strip():
+                widget.delete("1.0", "end")
+                widget.insert("1.0", placeholder)
+                widget.config(foreground="gray")
+        
+        # Initialize with placeholder
+        widget.insert("1.0", placeholder)
+        widget.config(foreground="gray")
+        widget.bind("<FocusIn>", on_focus_in)
+        widget.bind("<FocusOut>", on_focus_out)
+
+    def _on_quality_change(self, event=None) -> None:
+        """Handle quality combobox selection - map display text to internal value."""
+        display_value = self.quality_combo.get()
+        actual_value = self._quality_display.get(display_value, "medium")
+        self.quality_var.set(actual_value)
+
+    def _on_format_change(self, event=None) -> None:
+        """Handle format combobox selection - map display text to internal value."""
+        display_value = self.format_combo.get()
+        # Find actual format from display text
+        for fmt, desc in self._format_descriptions.items():
+            if desc == display_value:
+                self.format_var.set(fmt)
+                return
+        # Fallback: if display matches format directly
+        if display_value in downloader.SUPPORTED_FORMATS:
+            self.format_var.set(display_value)
+        else:
+            self.format_var.set("mp3")
+
+    def _toggle_advanced_options(self) -> None:
+        """Show or hide advanced options panel."""
+        if self._advanced_visible.get():
+            self.advanced_frame.grid_remove()
+            self.advanced_toggle.config(text="Show Advanced Options ▼")
+            self._advanced_visible.set(False)
+            self._append_log("Advanced options hidden")
+        else:
+            self.advanced_frame.grid()
+            self.advanced_toggle.config(text="Hide Advanced Options ▲")
+            self._advanced_visible.set(True)
+            self._append_log("Advanced options shown")
 
     def _append_log(self, line: str) -> None:
         self.log_text.configure(state="normal")

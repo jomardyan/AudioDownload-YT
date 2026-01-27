@@ -4,4 +4,3 @@ rich>=13.0.0
 # Development dependencies (optional)
 # pytest>=7.0.0
 # pytest-cov>=4.0.0
-rich>=13.0.0

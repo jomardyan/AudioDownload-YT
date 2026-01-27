@@ -92,6 +92,7 @@ You can track download progress by providing a callback function:
 ```python
 def my_progress_callback(data):
     status = data.get("status")
+    stage = data.get("stage")
     
     if status == "downloading":
         percent = (data.get("downloaded_bytes", 0) / data.get("total_bytes", 1)) * 100
@@ -100,12 +101,45 @@ def my_progress_callback(data):
     elif status == "finished":
         print(f"Finished: {data.get('filename')}")
         
+    elif status == "processing":
+        print(f"Post-processing: {stage}")
+        
     elif status == "error":
         print(f"Error: {data.get('error')}")
 
 result = download_audio(
     "https://www.youtube.com/watch?v=...",
     progress_callback=my_progress_callback
+)
+```
+
+### Cancelling Downloads
+
+You can cancel in-flight downloads by passing a `threading.Event`:
+
+```python
+import threading
+from downloader import download_audio
+
+cancel_event = threading.Event()
+
+# In another thread or UI handler, call: cancel_event.set()
+result = download_audio(
+    "https://www.youtube.com/watch?v=...",
+    cancel_event=cancel_event
+)
+```
+
+### Retries and Network Options
+
+```python
+result = download_audio(
+    "https://www.youtube.com/watch?v=...",
+    max_retries=3,
+    proxy="socks5://127.0.0.1:1080",
+    rate_limit="1M",
+    cookies_file="cookies.txt",
+    archive_file="archive.txt"
 )
 ```
 
@@ -133,8 +167,10 @@ result = download_audio("...")
 if not result.success:
     if result.error_code == ErrorCode.NETWORK_ERROR:
         print("Please check your internet connection.")
-    elif result.error_code == ErrorCode.NOT_FOUND:
-        print("Video not found or deleted.")
-    elif result.error_code == ErrorCode.AGE_RESTRICTED:
-        print("Video is age restricted.")
+    elif result.error_code == ErrorCode.PERMISSION_ERROR:
+        print("Access denied or restricted content.")
+    elif result.error_code == ErrorCode.TIMEOUT_ERROR:
+        print("The request timed out.")
+    elif result.error_code == ErrorCode.FFMPEG_ERROR:
+        print("FFmpeg is missing or failed.")
 ```

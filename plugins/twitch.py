@@ -17,7 +17,7 @@ class TwitchConverter(BaseConverter):
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
             name="Twitch Converter",
-            version="1.5.0",
+            version="1.5.2",
             platform="Twitch",
             description="Download VODs, clips, and highlights from Twitch",
             author="YouTube MP3 Downloader",

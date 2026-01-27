@@ -103,7 +103,7 @@ class NewPlatformConverter(BaseConverter):
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
             name="NewPlatform Converter",
-            version="1.5.0",
+            version="1.5.2",
             platform="NewPlatform",
             description="Download content from NewPlatform",
             author="Your Name",

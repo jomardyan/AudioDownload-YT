@@ -17,7 +17,7 @@ class RedditConverter(BaseConverter):
     def get_capabilities(self) -> PluginCapabilities:
         return PluginCapabilities(
             name="Reddit Converter",
-            version="1.5.0",
+            version="1.5.2",
             platform="Reddit",
             description="Download videos and audio from Reddit posts",
             author="YouTube MP3 Downloader",
