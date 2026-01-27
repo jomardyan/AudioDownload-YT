@@ -114,6 +114,7 @@ class Config:
     concurrent_downloads: int = 1
     embed_metadata: bool = True
     embed_thumbnail: bool = True
+    use_archive: bool = True
     archive_file: Optional[str] = None
     proxy: Optional[str] = None
     rate_limit: Optional[str] = None
@@ -144,6 +145,7 @@ class Config:
             config.set("network", "cookies_file", self.cookies_file)
 
         config.add_section("archive")
+        config.set("archive", "use_archive", str(self.use_archive))
         if self.archive_file:
             config.set("archive", "archive_file", self.archive_file)
 
@@ -192,6 +194,8 @@ class Config:
                 kwargs["cookies_file"] = config.get("network", "cookies_file")
 
         if config.has_section("archive"):
+            if config.has_option("archive", "use_archive"):
+                kwargs["use_archive"] = config.getboolean("archive", "use_archive")
             if config.has_option("archive", "archive_file"):
                 kwargs["archive_file"] = config.get("archive", "archive_file")
 
@@ -441,6 +445,121 @@ class DownloadProgress:
         elif d["status"] == "finished":
             if self.progress_callback:
                 self.progress_callback("✓ Download finished")
+
+
+def dry_run_info(
+    url: str,
+    output_dir: str = "./downloads",
+    filename_template: str = "%(title)s.%(ext)s",
+    audio_format: str = "mp3",
+    quality: str = "medium",
+    is_playlist: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """
+    Extract metadata without downloading (dry run / preview)
+
+    Args:
+        url: Content URL
+        output_dir: Output directory (for path resolution)
+        filename_template: Output filename template
+        audio_format: Output format
+        quality: Quality preset
+        is_playlist: Whether to treat as playlist
+
+    Returns:
+        Dictionary with metadata or None on failure
+    """
+    try:
+        # Try plugin system first
+        if PLUGINS_AVAILABLE:
+            registry = get_global_registry()
+            result = registry.find_plugin_for_url(url)
+            if result:
+                plugin_id, converter = result
+                try:
+                    info = converter.get_info(url, is_playlist=is_playlist)
+                    
+                    # Add output path information
+                    info["output_dir"] = output_dir
+                    info["format"] = audio_format
+                    info["quality"] = quality
+                    info["template"] = filename_template
+                    
+                    # Generate resolved paths for preview
+                    if "videos" in info:
+                        for video in info.get("videos", []):
+                            title = sanitize_filename(video.get("title", "untitled"))
+                            resolved_name = filename_template.replace("%(title)s", title).replace("%(ext)s", audio_format)
+                            video["resolved_path"] = f"{output_dir}/{resolved_name}"
+                    
+                    return info
+                except Exception as e:
+                    console.print(f"[yellow]Plugin error: {e}[/yellow]")
+                    return None
+
+        # Fallback: use yt-dlp directly
+        import yt_dlp
+        
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': 'in_playlist' if is_playlist else False,
+            'noplaylist': not is_playlist,
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(url, download=False)
+            
+            if not info_dict:
+                return None
+            
+            # Check if it's a playlist
+            is_playlist_result = 'entries' in info_dict
+            
+            result = {
+                "url": url,
+                "output_dir": output_dir,
+                "format": audio_format,
+                "quality": quality,
+                "template": filename_template,
+                "is_playlist": is_playlist_result,
+            }
+            
+            if is_playlist_result:
+                entries = list(info_dict.get('entries', []))
+                result["playlist_title"] = info_dict.get('title', 'Unknown Playlist')
+                result["video_count"] = len(entries)
+                result["videos"] = []
+                
+                for entry in entries[:10]:  # Limit preview to first 10
+                    if entry:
+                        title = sanitize_filename(entry.get('title', 'untitled'))
+                        resolved_name = filename_template.replace("%(title)s", title).replace("%(ext)s", audio_format)
+                        result["videos"].append({
+                            "title": entry.get('title', 'Unknown'),
+                            "duration": entry.get('duration'),
+                            "url": entry.get('webpage_url') or entry.get('url'),
+                            "resolved_path": f"{output_dir}/{resolved_name}",
+                        })
+            else:
+                # Single video
+                title = sanitize_filename(info_dict.get('title', 'untitled'))
+                resolved_name = filename_template.replace("%(title)s", title).replace("%(ext)s", audio_format)
+                
+                result["video_count"] = 1
+                result["videos"] = [{
+                    "title": info_dict.get('title', 'Unknown'),
+                    "duration": info_dict.get('duration'),
+                    "uploader": info_dict.get('uploader'),
+                    "url": url,
+                    "resolved_path": f"{output_dir}/{resolved_name}",
+                }]
+            
+            return result
+            
+    except Exception as e:
+        console.print(f"[red]Error extracting info: {e}[/red]")
+        return None
 
 
 def download_audio(

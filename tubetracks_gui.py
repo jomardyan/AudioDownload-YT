@@ -168,35 +168,107 @@ class App:
 
     def _open_urls_file(self) -> None:
         """Open a text file containing URLs."""
-        filename = filedialog.askopenfilename(
-            title="Open URLs file",
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
-        )
-        if filename:
+        try:
+            filename = filedialog.askopenfilename(
+                title="Open URLs file",
+                filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            )
+            if not filename:
+                return
+            
             try:
                 with open(filename, "r", encoding="utf-8") as f:
                     content = f.read()
+                
+                # Count valid URLs
+                valid_urls = [
+                    line.strip()
+                    for line in content.splitlines()
+                    if line.strip() and not line.strip().startswith("#")
+                ]
+                
                 self.urls_text.delete("1.0", "end")
                 self.urls_text.insert("1.0", content)
-                self._append_log(f"Loaded URLs from: {filename}")
+                self._append_log(f"✓ Loaded {len(valid_urls)} URL(s) from: {filename}")
+                
+            except UnicodeDecodeError:
+                # Try with different encoding
+                try:
+                    with open(filename, "r", encoding="latin-1") as f:
+                        content = f.read()
+                    self.urls_text.delete("1.0", "end")
+                    self.urls_text.insert("1.0", content)
+                    self._append_log(f"⚠ Loaded file with alternate encoding: {filename}")
+                except Exception as e:
+                    messagebox.showerror(
+                        "Encoding Error",
+                        f"Cannot decode file:\n\n{filename}\n\nError: {str(e)}"
+                    )
+                    self._append_log(f"✗ Encoding error: {filename}: {e}")
+            except PermissionError:
+                messagebox.showerror(
+                    "Permission Denied",
+                    f"Cannot read file:\n\n{filename}\n\nCheck file permissions."
+                )
+                self._append_log(f"✗ Permission denied: {filename}")
+            except FileNotFoundError:
+                messagebox.showerror("File Not Found", f"File does not exist:\n\n{filename}")
+                self._append_log(f"✗ File not found: {filename}")
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to open file: {e}")
+                messagebox.showerror(
+                    "Error Reading File",
+                    f"Failed to read file:\n\n{filename}\n\nError: {str(e)}"
+                )
+                self._append_log(f"✗ Error reading file: {e}")
+        except Exception as e:
+            messagebox.showerror("Unexpected Error", f"Error opening file dialog:\n\n{str(e)}")
+            self._append_log(f"✗ Unexpected error in file dialog: {e}")
 
     def _save_log(self) -> None:
         """Save the log to a file."""
-        filename = filedialog.asksaveasfilename(
-            title="Save log",
-            defaultextension=".txt",
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
-        )
-        if filename:
+        try:
+            filename = filedialog.asksaveasfilename(
+                title="Save log",
+                defaultextension=".txt",
+                filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            )
+            if not filename:
+                return
+            
             try:
                 content = self.log_text.get("1.0", "end")
+                
+                # Ensure parent directory exists
+                from pathlib import Path
+                Path(filename).parent.mkdir(parents=True, exist_ok=True)
+                
                 with open(filename, "w", encoding="utf-8") as f:
                     f.write(content)
-                messagebox.showinfo("Success", f"Log saved to: {filename}")
+                
+                messagebox.showinfo("Success", f"Log saved to:\n\n{filename}")
+                self._append_log(f"✓ Log saved to: {filename}")
+                
+            except PermissionError:
+                messagebox.showerror(
+                    "Permission Denied",
+                    f"Cannot write to file:\n\n{filename}\n\nCheck file/folder permissions."
+                )
+                self._append_log(f"✗ Permission denied saving log: {filename}")
+            except OSError as e:
+                messagebox.showerror(
+                    "File Error",
+                    f"Failed to save log:\n\n{filename}\n\nError: {str(e)}"
+                )
+                self._append_log(f"✗ OS error saving log: {e}")
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to save log: {e}")
+                messagebox.showerror(
+                    "Error",
+                    f"Failed to save log:\n\n{type(e).__name__}: {str(e)}"
+                )
+                self._append_log(f"✗ Unexpected error saving log: {e}")
+        except Exception as e:
+            messagebox.showerror("Unexpected Error", f"Error in save dialog:\n\n{str(e)}")
+            self._append_log(f"✗ Unexpected error in save dialog: {e}")
 
     def _clear_urls(self) -> None:
         """Clear the URLs text box."""
@@ -430,18 +502,107 @@ class App:
         self._update_archive_entry_state()
 
     def _choose_output(self) -> None:
-        folder = filedialog.askdirectory(title="Choose output folder")
-        if folder:
-            self.output_var.set(folder)
+        """Browse for output directory with validation."""
+        try:
+            folder = filedialog.askdirectory(title="Choose output folder")
+            if not folder:
+                return
+            
+            try:
+                # Validate the folder is accessible
+                from pathlib import Path
+                test_path = Path(folder)
+                
+                if not test_path.exists():
+                    create = messagebox.askyesno(
+                        "Create Folder",
+                        f"Folder does not exist:\n\n{folder}\n\nCreate it now?"
+                    )
+                    if create:
+                        test_path.mkdir(parents=True, exist_ok=True)
+                        self.output_var.set(folder)
+                        self._append_log(f"✓ Created output folder: {folder}")
+                    else:
+                        self._append_log(f"⚠ Folder selection cancelled")
+                        return
+                else:
+                    # Test write permissions
+                    test_file = test_path / ".write_test"
+                    try:
+                        test_file.touch()
+                        test_file.unlink()
+                    except PermissionError:
+                        messagebox.showwarning(
+                            "Permission Warning",
+                            f"Folder may not be writable:\n\n{folder}\n\nYou may encounter errors during download."
+                        )
+                        self._append_log(f"⚠ Warning: folder may not be writable: {folder}")
+                    
+                    self.output_var.set(folder)
+                    self._append_log(f"✓ Selected output folder: {folder}")
+                    
+            except PermissionError:
+                messagebox.showerror(
+                    "Permission Denied",
+                    f"Cannot access folder:\n\n{folder}\n\nCheck folder permissions."
+                )
+                self._append_log(f"✗ Permission denied: {folder}")
+            except Exception as e:
+                messagebox.showerror(
+                    "Folder Error",
+                    f"Cannot use folder:\n\n{folder}\n\nError: {str(e)}"
+                )
+                self._append_log(f"✗ Error accessing folder: {e}")
+        except Exception as e:
+            messagebox.showerror("Unexpected Error", f"Error selecting folder:\n\n{str(e)}")
+            self._append_log(f"✗ Unexpected error in folder browser: {e}")
 
     def _choose_cookies_file(self) -> None:
-        """Prompt the user to select a cookies file."""
-        filename = filedialog.askopenfilename(
-            title="Choose cookies file",
-            filetypes=[("Text files", "*.txt *.cookies"), ("All files", "*.*")],
-        )
-        if filename:
-            self.cookies_var.set(filename)
+        """Prompt the user to select a cookies file with validation."""
+        try:
+            filename = filedialog.askopenfilename(
+                title="Choose cookies file",
+                filetypes=[("Text files", "*.txt *.cookies"), ("All files", "*.*")],
+            )
+            if not filename:
+                return
+            
+            try:
+                # Validate the file exists and is readable
+                from pathlib import Path
+                test_path = Path(filename)
+                
+                if not test_path.exists():
+                    messagebox.showerror(
+                        "File Not Found",
+                        f"Cookies file does not exist:\n\n{filename}"
+                    )
+                    self._append_log(f"✗ Cookies file not found: {filename}")
+                    return
+                
+                # Try to read it to verify permissions
+                with open(filename, 'r') as f:
+                    f.read(1)  # Just read first byte
+                
+                self.cookies_var.set(filename)
+                self._append_log(f"✓ Selected cookies file: {filename}")
+                
+            except PermissionError:
+                messagebox.showerror(
+                    "Permission Denied",
+                    f"Cannot read cookies file:\n\n{filename}\n\nCheck file permissions."
+                )
+                self._append_log(f"✗ Permission denied: {filename}")
+            except Exception as e:
+                messagebox.showwarning(
+                    "Cookies File Warning",
+                    f"May not be able to read:\n\n{filename}\n\nError: {str(e)}\n\nFile selected anyway."
+                )
+                self.cookies_var.set(filename)
+                self._append_log(f"⚠ Warning with cookies file {filename}: {e}")
+        except Exception as e:
+            messagebox.showerror("Unexpected Error", f"Error selecting cookies file:\n\n{str(e)}")
+            self._append_log(f"✗ Unexpected error in cookies browser: {e}")
 
     def _load_config_defaults(self) -> None:
         """Load CLI configuration defaults so GUI stays in sync."""
@@ -552,21 +713,39 @@ class App:
     def _collect_options(self) -> Dict[str, Any]:
         """Collect current form values for worker thread usage."""
         template = self.template_var.get().strip() or "%(title)s.%(ext)s"
+        
+        # Validate and correct retries
         try:
             retries = max(0, int(self.retries_var.get()))
-        except (tk.TclError, ValueError):
+            if retries > 10:
+                self._append_log(f"⚠ Warning: Retries capped at 10 (was {retries})")
+                retries = 10
+        except (tk.TclError, ValueError) as e:
+            self._append_log(f"⚠ Invalid retries value, using default (3): {e}")
             retries = 3
+        
+        # Validate and correct concurrent downloads
         try:
             concurrent = int(self.concurrent_var.get())
-        except (tk.TclError, ValueError):
+            if concurrent < 1:
+                self._append_log("⚠ Concurrent downloads must be >= 1, using 1")
+                concurrent = 1
+            elif concurrent > 5:
+                self._append_log(f"⚠ Concurrent downloads capped at 5 (was {concurrent})")
+                concurrent = 5
+        except (tk.TclError, ValueError) as e:
+            self._append_log(f"⚠ Invalid concurrent value, using default (1): {e}")
             concurrent = 1
-        concurrent = max(1, min(5, concurrent))
 
         archive_file = None
         if self.use_archive_var.get():
-            archive_file = self.archive_var.get().strip() or str(
-                downloader.DEFAULT_ARCHIVE_FILE
-            )
+            try:
+                archive_file = self.archive_var.get().strip() or str(
+                    downloader.DEFAULT_ARCHIVE_FILE
+                )
+            except Exception as e:
+                self._append_log(f"⚠ Archive file error, using default: {e}")
+                archive_file = str(downloader.DEFAULT_ARCHIVE_FILE)
 
         cookies_file = self.cookies_var.get().strip() or None
         proxy = self.proxy_var.get().strip() or None
@@ -590,7 +769,7 @@ class App:
         }
 
     def _preview(self) -> None:
-        """Show a dry-run preview for the first URL."""
+        """Show a dry-run preview for the first URL (runs in background thread)."""
         if self._is_running:
             return
 
@@ -598,22 +777,142 @@ class App:
         if not urls:
             return
 
+        # Disable preview button during operation
+        self.preview_btn.configure(state="disabled")
+        self.start_btn.configure(state="disabled")
+        
+        # Set up progress indication
+        self.progress.configure(mode="indeterminate")
+        self.progress.start(10)
+        self.status_var.set("🔍 Fetching preview...")
+        
         options = self._collect_options()
         url = urls[0]
-        info = downloader.dry_run_info(
-            url=url,
-            output_dir=options["output_dir"],
-            filename_template=options["template"],
-            audio_format=options["audio_format"],
-            quality=options["quality"],
-            is_playlist=options["is_playlist"],
+        
+        # Run preview in background thread
+        preview_thread = threading.Thread(
+            target=self._preview_worker,
+            args=(url, options),
+            daemon=True
         )
-        if not info:
-            messagebox.showerror("Preview failed", "Unable to extract information.")
-            self._append_log("Preview failed – unable to extract info.")
-            return
+        preview_thread.start()
 
-        self._display_preview_info(url, info)
+    def _preview_worker(self, url: str, options: Dict[str, Any]) -> None:
+        """Background worker for preview operation."""
+        try:
+            self._queue.put({"type": "log", "text": f"🔍 Fetching preview for: {url}"})
+            self._queue.put({"type": "status", "text": "🔍 Connecting to platform..."})
+            
+            # Extract info with progress updates
+            info = self._fetch_preview_with_progress(
+                url=url,
+                output_dir=options["output_dir"],
+                filename_template=options["template"],
+                audio_format=options["audio_format"],
+                quality=options["quality"],
+                is_playlist=options["is_playlist"],
+            )
+            
+            if not info:
+                self._queue.put({
+                    "type": "preview_error",
+                    "title": "Preview Failed",
+                    "message": "Unable to extract information from URL.\n\nPossible causes:\n"
+                               "• Invalid or unsupported URL\n"
+                               "• Network connectivity issues\n"
+                               "• Content is private or restricted\n"
+                               "• Platform changes or updates needed"
+                })
+                self._queue.put({"type": "log", "text": "✗ Preview failed – unable to extract info"})
+                return
+
+            # Send preview data to main thread
+            self._queue.put({
+                "type": "preview_ready",
+                "url": url,
+                "info": info
+            })
+            
+        except downloader.DownloadError as e:
+            self._queue.put({
+                "type": "preview_error",
+                "title": "Download Error",
+                "message": f"Failed to fetch preview:\n\n{str(e)}"
+            })
+            self._queue.put({"type": "log", "text": f"✗ Preview error: {e}"})
+        except ConnectionError as e:
+            self._queue.put({
+                "type": "preview_error",
+                "title": "Network Error",
+                "message": f"Connection failed while fetching preview:\n\n{str(e)}\n\n"
+                           "Please check your internet connection."
+            })
+            self._queue.put({"type": "log", "text": f"✗ Network error: {e}"})
+        except Exception as e:
+            self._queue.put({
+                "type": "preview_error",
+                "title": "Unexpected Error",
+                "message": f"An unexpected error occurred:\n\n{type(e).__name__}: {str(e)}\n\n"
+                           "Please check the log for details."
+            })
+            self._queue.put({"type": "log", "text": f"✗ Unexpected preview error: {type(e).__name__}: {e}"})
+            import traceback
+            self._queue.put({"type": "log", "text": f"Traceback: {traceback.format_exc()}"})
+        finally:
+            # Always restore UI state
+            self._queue.put({"type": "preview_complete"})
+
+    def _fetch_preview_with_progress(
+        self,
+        url: str,
+        output_dir: str,
+        filename_template: str,
+        audio_format: str,
+        quality: str,
+        is_playlist: bool
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch preview info with progress updates."""
+        try:
+            self._queue.put({"type": "log", "text": "  → Extracting metadata..."})
+            self._queue.put({"type": "status", "text": "🔍 Extracting metadata..."})
+            
+            info = downloader.dry_run_info(
+                url=url,
+                output_dir=output_dir,
+                filename_template=filename_template,
+                audio_format=audio_format,
+                quality=quality,
+                is_playlist=is_playlist,
+            )
+            
+            if info:
+                video_count = info.get("video_count", 0)
+                is_playlist_result = info.get("is_playlist", False)
+                
+                if is_playlist_result:
+                    self._queue.put({"type": "log", "text": f"  ✓ Found playlist with {video_count} videos"})
+                    self._queue.put({"type": "status", "text": f"✓ Playlist: {video_count} videos"})
+                    
+                    # Log each video as we process it
+                    videos = info.get("videos", [])
+                    for idx, video in enumerate(videos[:10], 1):
+                        title = video.get("title", "Unknown")
+                        self._queue.put({"type": "log", "text": f"    [{idx}] {title}"})
+                        
+                    if video_count > 10:
+                        self._queue.put({"type": "log", "text": f"    ... and {video_count - 10} more videos"})
+                else:
+                    title = info.get("videos", [{}])[0].get("title", "Unknown") if info.get("videos") else "Unknown"
+                    self._queue.put({"type": "log", "text": f"  ✓ Found video: {title}"})
+                    self._queue.put({"type": "status", "text": "✓ Preview ready"})
+                
+                self._queue.put({"type": "log", "text": f"  → Format: {audio_format} @ {quality} quality"})
+            
+            return info
+            
+        except Exception as e:
+            self._queue.put({"type": "log", "text": f"  ✗ Error during preview fetch: {e}"})
+            raise
 
     def _display_preview_info(self, url: str, info: Dict[str, Any]) -> None:
         """Render preview data in a dialog."""
@@ -651,23 +950,47 @@ class App:
 
     def _show_plugins(self) -> None:
         """Display supported plugin platforms."""
-        platforms = downloader.list_supported_platforms()
-        if not platforms:
-            messagebox.showinfo("Plugins", "No plugins available.")
-            return
+        try:
+            platforms = downloader.list_supported_platforms()
+            if not platforms:
+                messagebox.showwarning(
+                    "No Plugins", 
+                    "No plugins are currently available.\n\n"
+                    "This might indicate a configuration issue."
+                )
+                self._append_log("⚠ Warning: No plugins available")
+                return
 
-        lines = []
-        for plugin_id, data in sorted(platforms.items()):
-            playlist = "✓" if data.get("supports_playlist") else "✗"
-            lines.append(
-                f"{data.get('platform')} — Formats: {', '.join(data.get('output_formats', [])[:3])}"
-                f" — Playlist: {playlist}"
+            lines = []
+            for plugin_id, data in sorted(platforms.items()):
+                try:
+                    playlist = "✓" if data.get("supports_playlist") else "✗"
+                    formats = ', '.join(data.get('output_formats', [])[:3]) or "N/A"
+                    platform_name = data.get('platform', plugin_id)
+                    lines.append(
+                        f"{platform_name} — Formats: {formats} — Playlist: {playlist}"
+                    )
+                except Exception as e:
+                    self._append_log(f"⚠ Error formatting plugin {plugin_id}: {e}")
+                    continue
+
+            if not lines:
+                messagebox.showerror(
+                    "Plugin Error", 
+                    "Failed to format plugin information.\n\nCheck the log for details."
+                )
+                return
+
+            messagebox.showinfo(
+                "Supported Platforms", "\n".join(lines) + f"\n\nTotal: {len(platforms)}"
             )
-
-        messagebox.showinfo(
-            "Supported Platforms", "\n".join(lines) + f"\n\nTotal: {len(platforms)}"
-        )
-        self._append_log("Displayed supported plugins.")
+            self._append_log(f"✓ Displayed {len(platforms)} supported plugins")
+        except Exception as e:
+            messagebox.showerror(
+                "Plugin Error", 
+                f"Failed to retrieve plugin information:\n\n{str(e)}"
+            )
+            self._append_log(f"✗ Error loading plugins: {e}")
 
     def _start(self) -> None:
         if self._worker and self._worker.is_alive():
@@ -699,24 +1022,34 @@ class App:
             self.cancel_btn.configure(state="disabled")
 
     def _run_worker(self, urls: List[str], options: Dict[str, Any]) -> None:
-        # Snapshot options for thread safety
-        output_dir = options["output_dir"]
-        quality = options["quality"]
-        fmt = options["audio_format"]
-        template = options["template"]
-        is_playlist = options["is_playlist"]
-        embed_metadata = options["embed_metadata"]
-        embed_thumbnail = options["embed_thumbnail"]
-        retries = options["retries"]
-        concurrent = options["concurrent_downloads"]
-        skip_existing = options["skip_existing"]
-        archive_file = options["archive_file"]
-        proxy = options["proxy"]
-        rate_limit = options["rate_limit"]
-        cookies_file = options["cookies_file"]
+        """Worker thread for processing downloads with comprehensive error handling."""
+        try:
+            # Snapshot options for thread safety
+            output_dir = options["output_dir"]
+            quality = options["quality"]
+            fmt = options["audio_format"]
+            template = options["template"]
+            is_playlist = options["is_playlist"]
+            embed_metadata = options["embed_metadata"]
+            embed_thumbnail = options["embed_thumbnail"]
+            retries = options["retries"]
+            concurrent = options["concurrent_downloads"]
+            skip_existing = options["skip_existing"]
+            archive_file = options["archive_file"]
+            proxy = options["proxy"]
+            rate_limit = options["rate_limit"]
+            cookies_file = options["cookies_file"]
 
-        completed = 0
-        total = len(urls)
+            completed = 0
+            total = len(urls)
+        except KeyError as e:
+            self._queue.put({"type": "log", "text": f"✗ Configuration error: Missing option {e}"})
+            self._queue.put({"type": "error", "message": f"Configuration error: {e}"})
+            return
+        except Exception as e:
+            self._queue.put({"type": "log", "text": f"✗ Worker initialization error: {e}"})
+            self._queue.put({"type": "error", "message": f"Initialization failed: {e}"})
+            return
 
         def progress_callback(payload: Dict[str, Any]) -> None:
             # payload comes from worker thread
@@ -740,30 +1073,65 @@ class App:
                 self._queue.put({"type": "cancelled"})
                 return
 
-            self._queue.put({"type": "status", "text": f"Processing {idx}/{total}"})
-            self._queue.put({"type": "log", "text": f"→ {url}"})
+            try:
+                self._queue.put({"type": "status", "text": f"Processing {idx}/{total}"})
+                self._queue.put({"type": "log", "text": f"→ {url}"})
 
-            result = downloader.download_audio(
-                url=url,
-                output_dir=output_dir,
-                quality=quality,
-                audio_format=fmt,
-                embed_metadata=embed_metadata,
-                embed_thumbnail=embed_thumbnail,
-                filename_template=template,
-                quiet=True,
-                is_playlist=is_playlist,
-                max_retries=retries,
-                archive_file=archive_file,
-                proxy=proxy,
-                rate_limit=rate_limit,
-                cookies_file=cookies_file,
-                progress_callback=progress_callback,
-                cancel_event=self._cancel_event,
-                concurrent_downloads=concurrent,
-                skip_existing=skip_existing,
-                playlist_progress_callback=playlist_progress_callback,
-            )
+                result = downloader.download_audio(
+                    url=url,
+                    output_dir=output_dir,
+                    quality=quality,
+                    audio_format=fmt,
+                    embed_metadata=embed_metadata,
+                    embed_thumbnail=embed_thumbnail,
+                    filename_template=template,
+                    quiet=True,
+                    is_playlist=is_playlist,
+                    max_retries=retries,
+                    archive_file=archive_file,
+                    proxy=proxy,
+                    rate_limit=rate_limit,
+                    cookies_file=cookies_file,
+                    progress_callback=progress_callback,
+                    cancel_event=self._cancel_event,
+                    concurrent_downloads=concurrent,
+                    skip_existing=skip_existing,
+                    playlist_progress_callback=playlist_progress_callback,
+                )
+            except PermissionError as e:
+                result = downloader.DownloadResult(
+                    success=False,
+                    url=url,
+                    error_code=downloader.ErrorCode.PERMISSION_ERROR,
+                    error_message=f"Permission denied: {str(e)}",
+                )
+                self._queue.put({"type": "log", "text": f"✗ Permission error for {url}: {e}"})
+            except ConnectionError as e:
+                result = downloader.DownloadResult(
+                    success=False,
+                    url=url,
+                    error_code=downloader.ErrorCode.NETWORK_ERROR,
+                    error_message=f"Network error: {str(e)}",
+                )
+                self._queue.put({"type": "log", "text": f"✗ Network error for {url}: {e}"})
+            except TimeoutError as e:
+                result = downloader.DownloadResult(
+                    success=False,
+                    url=url,
+                    error_code=downloader.ErrorCode.TIMEOUT_ERROR,
+                    error_message=f"Download timed out: {str(e)}",
+                )
+                self._queue.put({"type": "log", "text": f"✗ Timeout for {url}: {e}"})
+            except Exception as e:
+                result = downloader.DownloadResult(
+                    success=False,
+                    url=url,
+                    error_code=downloader.ErrorCode.UNKNOWN_ERROR,
+                    error_message=f"Unexpected error: {type(e).__name__}: {str(e)}",
+                )
+                self._queue.put({"type": "log", "text": f"✗ Unexpected error for {url}: {type(e).__name__}: {e}"})
+                import traceback
+                self._queue.put({"type": "log", "text": f"Traceback: {traceback.format_exc()}"})
 
             completed += 1
             self._queue.put(
@@ -789,32 +1157,61 @@ class App:
                 self._handle_queue_message(msg)
         except queue.Empty:
             pass
-        self.root.after(100, self._poll_queue)
+        except Exception as e:
+            # Critical: queue polling failed
+            self._append_log(f"✗ Queue polling error: {type(e).__name__}: {e}")
+            import traceback
+            self._append_log(f"Traceback: {traceback.format_exc()}")
+        finally:
+            # Always reschedule polling to keep GUI responsive
+            try:
+                self.root.after(100, self._poll_queue)
+            except Exception:
+                # Even scheduling failed - this is very bad
+                pass
 
     def _handle_queue_message(self, msg: Dict[str, Any]) -> None:
         """Handle a single message from the queue."""
-        mtype = msg.get("type")
+        try:
+            mtype = msg.get("type")
 
-        if mtype == "log":
-            self._append_log(str(msg.get("text", "")))
+            if mtype == "log":
+                self._append_log(str(msg.get("text", "")))
 
-        elif mtype == "status":
-            self.status_var.set(str(msg.get("text", "")))
+            elif mtype == "status":
+                self.status_var.set(str(msg.get("text", "")))
 
-        elif mtype == "progress":
-            self._handle_progress(msg.get("payload") or {})
+            elif mtype == "progress":
+                self._handle_progress(msg.get("payload") or {})
 
-        elif mtype == "playlist_progress":
-            self._handle_playlist_progress(msg)
+            elif mtype == "playlist_progress":
+                self._handle_playlist_progress(msg)
 
-        elif mtype == "result":
-            self._handle_result(msg)
+            elif mtype == "result":
+                self._handle_result(msg)
 
-        elif mtype == "cancelled":
-            self._handle_cancelled()
+            elif mtype == "cancelled":
+                self._handle_cancelled()
 
-        elif mtype == "done":
-            self._handle_done()
+            elif mtype == "done":
+                self._handle_done()
+
+            elif mtype == "error":
+                # Critical worker error
+                error_msg = msg.get("message", "Unknown error")
+                self._append_log(f"✗ Critical error: {error_msg}")
+                self.status_var.set(f"Error: {error_msg}")
+                self._set_running(False)
+                messagebox.showerror(
+                    "Download Error", 
+                    f"A critical error occurred:\n\n{error_msg}\n\n"
+                    "Check the log for more details."
+                )
+        except Exception as e:
+            # Failsafe: if message handling itself fails
+            self._append_log(f"✗ Error handling queue message: {type(e).__name__}: {e}")
+            import traceback
+            self._append_log(f"Traceback: {traceback.format_exc()}")
 
     def _handle_progress(self, payload: Dict[str, Any]) -> None:
         """Handle progress update messages."""
@@ -896,8 +1293,12 @@ class App:
 
     def _handle_result(self, msg: Dict[str, Any]) -> None:
         """Handle download result messages."""
-        result: downloader.DownloadResult = msg["result"]
-        completed = int(msg.get("completed", 0))
+        try:
+            result: downloader.DownloadResult = msg["result"]
+            completed = int(msg.get("completed", 0))
+        except (KeyError, ValueError, TypeError) as e:
+            self._append_log(f"✗ Error parsing result message: {e}")
+            return
         total = int(msg.get("total", 1))
 
         if result.success:
