@@ -34,6 +34,10 @@ class App:
         self._queue: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._is_running = False
         self._is_previewing = False
+        self._pending_logs: List[str] = []
+        self._run_errors: List[Dict[str, str]] = []
+        self._run_cancelled = False
+        self._last_playlist_index: Optional[int] = None
 
         self._build_menu()
         self._build_ui()
@@ -636,6 +640,34 @@ class App:
         self.log_text.insert("end", line + "\n")
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
+        self._trim_log_if_needed()
+
+    def _buffer_log(self, line: str) -> None:
+        """Buffer log lines to keep UI responsive during heavy output."""
+        self._pending_logs.append(line)
+
+    def _flush_log_buffer(self) -> None:
+        if not self._pending_logs:
+            return
+        self.log_text.configure(state="normal")
+        self.log_text.insert("end", "\n".join(self._pending_logs) + "\n")
+        self.log_text.see("end")
+        self.log_text.configure(state="disabled")
+        self._pending_logs.clear()
+        self._trim_log_if_needed()
+
+    def _trim_log_if_needed(self) -> None:
+        """Prevent the log widget from growing unbounded."""
+        max_lines = 5000
+        trim_lines = 500
+        try:
+            line_count = int(float(self.log_text.index("end-1c").split(".")[0]))
+        except Exception:
+            return
+        if line_count > max_lines:
+            self.log_text.configure(state="normal")
+            self.log_text.delete("1.0", f"{trim_lines + 1}.0")
+            self.log_text.configure(state="disabled")
 
     def _set_running(self, running: bool) -> None:
         """Enable or disable controls based on running state."""
@@ -829,8 +861,15 @@ class App:
                 quality=options["quality"],
                 is_playlist=options["is_playlist"],
             )
+
+            if self._preview_cancel_event.is_set():
+                self._queue.put({"type": "log", "text": "⊘ Preview cancelled by user"})
+                return
             
             if not info:
+                if self._preview_cancel_event.is_set():
+                    self._queue.put({"type": "log", "text": "⊘ Preview cancelled by user"})
+                    return
                 self._queue.put({
                     "type": "preview_error",
                     "title": "Preview Failed",
@@ -851,6 +890,9 @@ class App:
             })
             
         except downloader.DownloadError as e:
+            if self._preview_cancel_event.is_set():
+                self._queue.put({"type": "log", "text": "⊘ Preview cancelled by user"})
+                return
             self._queue.put({
                 "type": "preview_error",
                 "title": "Download Error",
@@ -858,6 +900,9 @@ class App:
             })
             self._queue.put({"type": "log", "text": f"✗ Preview error: {e}"})
         except ConnectionError as e:
+            if self._preview_cancel_event.is_set():
+                self._queue.put({"type": "log", "text": "⊘ Preview cancelled by user"})
+                return
             self._queue.put({
                 "type": "preview_error",
                 "title": "Network Error",
@@ -866,6 +911,9 @@ class App:
             })
             self._queue.put({"type": "log", "text": f"✗ Network error: {e}"})
         except Exception as e:
+            if self._preview_cancel_event.is_set():
+                self._queue.put({"type": "log", "text": "⊘ Preview cancelled by user"})
+                return
             self._queue.put({
                 "type": "preview_error",
                 "title": "Unexpected Error",
@@ -1031,6 +1079,8 @@ class App:
 
         options = self._collect_options()
         self._cancel_event.clear()
+        self._run_errors.clear()
+        self._run_cancelled = False
         self.progress.configure(mode="determinate")
         self.progress["value"] = 0
         self.status_var.set("Starting…")
@@ -1189,9 +1239,12 @@ class App:
     def _poll_queue(self) -> None:
         """Poll the queue for messages from the worker thread."""
         try:
-            while True:
+            processed = 0
+            max_messages = 50
+            while processed < max_messages:
                 msg = self._queue.get_nowait()
                 self._handle_queue_message(msg)
+                processed += 1
         except queue.Empty:
             pass
         except Exception as e:
@@ -1200,6 +1253,7 @@ class App:
             import traceback
             self._append_log(f"Traceback: {traceback.format_exc()}")
         finally:
+            self._flush_log_buffer()
             # Always reschedule polling to keep GUI responsive
             try:
                 self.root.after(100, self._poll_queue)
@@ -1213,7 +1267,7 @@ class App:
             mtype = msg.get("type")
 
             if mtype == "log":
-                self._append_log(str(msg.get("text", "")))
+                self._buffer_log(str(msg.get("text", "")))
 
             elif mtype == "status":
                 self.status_var.set(str(msg.get("text", "")))
@@ -1274,6 +1328,41 @@ class App:
         """Handle progress update messages."""
         status = payload.get("status")
         stage = payload.get("stage", "")
+        info_dict = payload.get("info_dict") or {}
+        playlist_index = payload.get("playlist_index") or info_dict.get("playlist_index")
+        playlist_count = payload.get("playlist_count") or info_dict.get("playlist_count")
+        title = info_dict.get("title") or payload.get("filename") or ""
+
+        if playlist_index and playlist_count:
+            label = (
+                f"[{playlist_index}/{playlist_count}] {title}"
+                if title
+                else f"[{playlist_index}/{playlist_count}]"
+            )
+
+            percent_str = payload.get("_percent_str")
+            speed_str = payload.get("_speed_str")
+            eta = payload.get("eta")
+            eta_str = ""
+            if isinstance(eta, (int, float)) and eta > 0:
+                eta_str = f" ETA {int(eta)}s"
+
+            if status == "downloading":
+                if playlist_index != self._last_playlist_index:
+                    self._buffer_log(f"▶ {label}")
+                    self._last_playlist_index = int(playlist_index)
+                if percent_str or speed_str:
+                    status_line = f"{label}"
+                    if percent_str:
+                        status_line += f" {percent_str}"
+                    if speed_str:
+                        status_line += f" at {speed_str}"
+                    status_line += eta_str
+                    self.status_var.set(status_line)
+            elif status == "finished":
+                self._buffer_log(f"✓ {label} done")
+            elif status == "processing" and stage:
+                self.status_var.set(f"{label} – {stage}")
 
         # Handle playlist_progress separately
         if status == "playlist_progress":
@@ -1365,6 +1454,9 @@ class App:
         else:
             self._append_log(f"✗ {result.title or result.url}")
             self._append_log(f"  Error: {result.error_message}")
+            self._run_errors.append(
+                {"url": result.url or "Unknown URL", "error": result.error_message}
+            )
 
         # coarse overall progress (per-url)
         overall_pct = (completed / max(1, total)) * 100.0
@@ -1377,6 +1469,7 @@ class App:
         self.progress.stop()
         self.status_var.set("Cancelled")
         self._append_log("Cancelled.")
+        self._run_cancelled = True
         self._set_running(False)
 
     def _handle_done(self) -> None:
@@ -1387,6 +1480,20 @@ class App:
         self.status_var.set("Done")
         self._append_log("All done.")
         self._set_running(False)
+        self._last_playlist_index = None
+        if self._run_errors and not self._run_cancelled:
+            preview = []
+            for err in self._run_errors[:3]:
+                preview.append(f"{err['url']}\n  {err['error']}")
+            extra = ""
+            if len(self._run_errors) > 3:
+                extra = f"\n\n...and {len(self._run_errors) - 3} more error(s)."
+            messagebox.showwarning(
+                "Some downloads failed",
+                f"{len(self._run_errors)} URL(s) failed.\n\n"
+                + "\n\n".join(preview)
+                + extra,
+            )
 
 
 def main() -> None:

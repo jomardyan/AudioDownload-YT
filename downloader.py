@@ -272,6 +272,81 @@ def _parse_rate_limit(limit: Optional[str]) -> Optional[int]:
         return None
 
 
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from strings."""
+    return ANSI_ESCAPE.sub("", text or "")
+
+
+def _classify_error(message: str) -> ErrorCode:
+    """Best-effort mapping from error message to ErrorCode."""
+    msg = (message or "").lower()
+
+    if "cancelled" in msg or "canceled" in msg:
+        return ErrorCode.CANCELLED
+    if "ffmpeg" in msg and ("not found" in msg or "missing" in msg):
+        return ErrorCode.FFMPEG_ERROR
+    if "permission denied" in msg:
+        return ErrorCode.PERMISSION_ERROR
+    if "http error 403" in msg or "403" in msg or "forbidden" in msg:
+        return ErrorCode.PERMISSION_ERROR
+    if "http error 429" in msg or "too many requests" in msg:
+        return ErrorCode.NETWORK_ERROR
+    if "timed out" in msg or "timeout" in msg:
+        return ErrorCode.TIMEOUT_ERROR
+    if "proxy" in msg or "network" in msg or "connection" in msg:
+        return ErrorCode.NETWORK_ERROR
+    if "extractor" in msg or "unable to extract" in msg:
+        return ErrorCode.EXTRACTION_ERROR
+    if "postprocessing" in msg or "post-processing" in msg:
+        return ErrorCode.POSTPROCESSING_ERROR
+    if "cookie" in msg or "sign in" in msg or "age" in msg:
+        return ErrorCode.PERMISSION_ERROR
+
+    return ErrorCode.DOWNLOAD_ERROR
+
+
+def _is_retryable(error_code: ErrorCode) -> bool:
+    """Return True when a retry is likely to help."""
+    return error_code in {
+        ErrorCode.NETWORK_ERROR,
+        ErrorCode.TIMEOUT_ERROR,
+        ErrorCode.DOWNLOAD_ERROR,
+        ErrorCode.EXTRACTION_ERROR,
+    }
+
+
+def _normalize_progress_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize yt-dlp progress payload for the GUI."""
+    status = payload.get("status")
+    postprocessor = (payload.get("postprocessor") or "").lower()
+
+    stage = payload.get("stage", "")
+    if status == "downloading":
+        stage = stage or "downloading"
+    elif status == "finished":
+        stage = stage or "downloaded"
+
+    if postprocessor:
+        if "ffmpegextractaudio" in postprocessor:
+            stage = "converting"
+        elif "ffmpegmetadata" in postprocessor:
+            stage = "metadata"
+        elif "embedthumbnail" in postprocessor or "thumbnail" in postprocessor:
+            stage = "thumbnail"
+        payload = dict(payload)
+        payload["status"] = "processing"
+        payload["stage"] = stage
+        return payload
+
+    payload = dict(payload)
+    if stage:
+        payload["stage"] = stage
+    return payload
+
+
 def sanitize_filename(filename: str) -> str:
     """Sanitize filename to remove unsafe characters"""
     if not filename or filename == "...":
@@ -613,36 +688,105 @@ def download_audio(
             error_message=msg,
         )
 
+    cancel_event = kwargs.get("cancel_event")
+    max_retries = kwargs.get("max_retries")
+    retry_delay = kwargs.get("retry_delay", 1.0)
+    retry_backoff = kwargs.get("retry_backoff", 1.6)
+    progress_callback = kwargs.get("progress_callback")
+
+    if max_retries is not None:
+        try:
+            max_retries = max(0, int(max_retries))
+        except (TypeError, ValueError):
+            max_retries = 0
+    else:
+        max_retries = 0
+
+    def progress_adapter(payload: Dict[str, Any]) -> None:
+        if cancel_event and cancel_event.is_set():
+            raise DownloadError("Download cancelled by user")
+        if progress_callback:
+            progress_callback(_normalize_progress_payload(payload))
+
     # Try plugin system first
     if PLUGINS_AVAILABLE:
+        start_time = time.monotonic()
+        attempts = 0
         try:
             registry = get_global_registry()
             result = registry.find_plugin_for_url(url)
             if result:
                 plugin_id, converter = result
-                success, file_path, error = converter.download(
-                    url, output_dir, quality=quality, format=audio_format, **kwargs
-                )
-                if success:
-                    return DownloadResult(
-                        success=True,
-                        url=url,
-                        title=audio_format,
-                        output_path=file_path,
+                while True:
+                    if cancel_event and cancel_event.is_set():
+                        return DownloadResult(
+                            success=False,
+                            url=url,
+                            error_code=ErrorCode.CANCELLED,
+                            error_message="Download cancelled by user",
+                            attempts=attempts,
+                        )
+
+                    attempts += 1
+                    try:
+                        success, file_path, error = converter.download(
+                            url,
+                            output_dir,
+                            quality=quality,
+                            format=audio_format,
+                            progress_hook=progress_adapter,
+                            quiet=quiet,
+                            **kwargs,
+                        )
+                    except Exception as e:
+                        success = False
+                        file_path = None
+                        error = str(e)
+
+                    if success:
+                        return DownloadResult(
+                            success=True,
+                            url=url,
+                            title=audio_format,
+                            output_path=file_path,
+                            attempts=attempts,
+                            duration_seconds=time.monotonic() - start_time,
+                        )
+
+                    error_message = _strip_ansi(error or "Download failed")
+                    error_code = _classify_error(error_message)
+
+                    if error_code == ErrorCode.CANCELLED:
+                        return DownloadResult(
+                            success=False,
+                            url=url,
+                            error_code=ErrorCode.CANCELLED,
+                            error_message="Download cancelled by user",
+                            attempts=attempts,
+                            duration_seconds=time.monotonic() - start_time,
+                        )
+
+                    should_retry = (
+                        attempts <= max_retries and _is_retryable(error_code)
                     )
-                else:
-                    return DownloadResult(
-                        success=False,
-                        url=url,
-                        error_code=ErrorCode.DOWNLOAD_ERROR,
-                        error_message=error or "Download failed",
-                    )
+                    if not should_retry:
+                        return DownloadResult(
+                            success=False,
+                            url=url,
+                            error_code=error_code,
+                            error_message=error_message,
+                            attempts=attempts,
+                            duration_seconds=time.monotonic() - start_time,
+                        )
+
+                    delay = min(float(retry_delay) * (retry_backoff ** (attempts - 1)), 10.0)
+                    time.sleep(delay)
         except Exception as e:
             return DownloadResult(
                 success=False,
                 url=url,
                 error_code=ErrorCode.PLUGIN_ERROR,
-                error_message=str(e),
+                error_message=_strip_ansi(str(e)),
             )
 
     # Fallback to yt-dlp

@@ -7,8 +7,49 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import yt_dlp
+from yt_dlp.utils import DownloadError
 
 from .base import BaseConverter, ContentType, ExtractorType, PluginCapabilities
+
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+FALLBACK_HTTP_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.youtube.com/",
+}
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI color codes from error strings for UI display and parsing."""
+    return ANSI_ESCAPE.sub("", text or "")
+
+
+def _is_forbidden_error(message: str) -> bool:
+    """Detect YouTube 403 blocks that benefit from fallback settings."""
+    msg = (message or "").lower()
+    return (
+        "http error 403" in msg
+        or "403: forbidden" in msg
+        or "unable to download video data" in msg
+        or ("http error" in msg and "forbidden" in msg)
+    )
+
+
+def _merge_ydl_opts(base: Dict[str, Any], extra: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge nested yt-dlp options (headers/extractor_args) safely."""
+    merged = dict(base)
+    for key, value in extra.items():
+        if key in ("extractor_args", "http_headers") and isinstance(
+            value, dict
+        ) and isinstance(merged.get(key), dict):
+            merged[key] = {**merged[key], **value}
+        else:
+            merged[key] = value
+    return merged
 
 
 class YouTubeConverter(BaseConverter):
@@ -126,9 +167,12 @@ class YouTubeConverter(BaseConverter):
             if kwargs.get("embed_thumbnail", True):
                 postprocessors.append({"key": "EmbedThumbnail"})
 
-            progress_hook = kwargs.get("progress_hook")
+            progress_hook = kwargs.get("progress_hook") or kwargs.get(
+                "progress_callback"
+            )
+            cancel_event = kwargs.get("cancel_event")
 
-            ydl_opts = {
+            ydl_opts: Dict[str, Any] = {
                 "format": "bestaudio/best",
                 "postprocessors": postprocessors,
                 "outtmpl": outtmpl,
@@ -148,12 +192,25 @@ class YouTubeConverter(BaseConverter):
                 ydl_opts["ratelimit"] = kwargs["rate_limit"]
             if kwargs.get("archive_file"):
                 ydl_opts["download_archive"] = kwargs["archive_file"]
+            if kwargs.get("skip_existing"):
+                ydl_opts["nooverwrites"] = True
+
+            max_retries = kwargs.get("max_retries")
+            if max_retries is not None:
+                try:
+                    retries = max(0, int(max_retries))
+                except (TypeError, ValueError):
+                    retries = 0
+                ydl_opts["retries"] = retries
+                ydl_opts["fragment_retries"] = retries
 
             downloaded_file = None
 
             class ProgressHook:
                 def __call__(self, d):
                     nonlocal downloaded_file
+                    if cancel_event and cancel_event.is_set():
+                        raise DownloadError("Download cancelled by user")
                     if d["status"] == "finished":
                         downloaded_file = d.get("filename")
 
@@ -162,10 +219,36 @@ class YouTubeConverter(BaseConverter):
                 hooks.append(progress_hook)
             ydl_opts["progress_hooks"] = hooks
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-
-            return True, downloaded_file, None
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                return True, downloaded_file, None
+            except Exception as e:
+                error_message = _strip_ansi(str(e))
+                if _is_forbidden_error(error_message):
+                    fallback_opts = _merge_ydl_opts(
+                        ydl_opts,
+                        {
+                            "extractor_args": {
+                                "youtube": {"player_client": ["android", "web"]}
+                            },
+                            "http_headers": FALLBACK_HTTP_HEADERS,
+                        },
+                    )
+                    try:
+                        with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                            ydl.download([url])
+                        return True, downloaded_file, None
+                    except Exception as fallback_error:
+                        fallback_message = _strip_ansi(str(fallback_error))
+                        hint = (
+                            "Hint: YouTube blocked the request (HTTP 403). "
+                            "Try providing a cookies file or updating yt-dlp."
+                        )
+                        if _is_forbidden_error(fallback_message):
+                            fallback_message = f"{fallback_message} ({hint})"
+                        return False, None, f"YouTube download failed: {fallback_message}"
+                return False, None, f"YouTube download failed: {error_message}"
 
         except Exception as e:
-            return False, None, f"YouTube download failed: {str(e)}"
+            return False, None, f"YouTube download failed: {_strip_ansi(str(e))}"
