@@ -1448,9 +1448,13 @@ class App:
         total = int(msg.get("total", 1))
 
         if result.success:
-            self._append_log(f"✓ {result.title or result.url}")
-            if result.output_path:
-                self._append_log(f"  Saved: {result.output_path}")
+            if result.skipped:
+                self._append_log(f"⊘ {result.title or result.url}")
+                self._append_log(f"  {result.error_message}")
+            else:
+                self._append_log(f"✓ {result.title or result.url}")
+                if result.output_path:
+                    self._append_log(f"  Saved: {result.output_path}")
         else:
             self._append_log(f"✗ {result.title or result.url}")
             self._append_log(f"  Error: {result.error_message}")

@@ -205,14 +205,17 @@ class YouTubeConverter(BaseConverter):
                 ydl_opts["fragment_retries"] = retries
 
             downloaded_file = None
+            any_downloaded = False
 
             class ProgressHook:
                 def __call__(self, d):
                     nonlocal downloaded_file
+                    nonlocal any_downloaded
                     if cancel_event and cancel_event.is_set():
                         raise DownloadError("Download cancelled by user")
                     if d["status"] == "finished":
                         downloaded_file = d.get("filename")
+                        any_downloaded = True
 
             hooks = [ProgressHook()]
             if progress_hook:
@@ -222,6 +225,12 @@ class YouTubeConverter(BaseConverter):
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
+                if not any_downloaded:
+                    return (
+                        False,
+                        None,
+                        "Skipped: no new files downloaded (already exists or in archive).",
+                    )
                 return True, downloaded_file, None
             except Exception as e:
                 error_message = _strip_ansi(str(e))
@@ -238,6 +247,12 @@ class YouTubeConverter(BaseConverter):
                     try:
                         with yt_dlp.YoutubeDL(fallback_opts) as ydl:
                             ydl.download([url])
+                        if not any_downloaded:
+                            return (
+                                False,
+                                None,
+                                "Skipped: no new files downloaded (already exists or in archive).",
+                            )
                         return True, downloaded_file, None
                     except Exception as fallback_error:
                         fallback_message = _strip_ansi(str(fallback_error))

@@ -756,6 +756,19 @@ def download_audio(
                     error_message = _strip_ansi(error or "Download failed")
                     error_code = _classify_error(error_message)
 
+                    if "skipped" in error_message.lower():
+                        return DownloadResult(
+                            success=True,
+                            url=url,
+                            title=audio_format,
+                            output_path=file_path,
+                            error_code=ErrorCode.SUCCESS,
+                            error_message=error_message,
+                            attempts=attempts,
+                            duration_seconds=time.monotonic() - start_time,
+                            skipped=True,
+                        )
+
                     if error_code == ErrorCode.CANCELLED:
                         return DownloadResult(
                             success=False,
